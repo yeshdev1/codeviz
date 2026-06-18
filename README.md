@@ -20,7 +20,7 @@ See [`examples/demo/system-map.html`](examples/demo/system-map.html) for a live 
 ## Install
 
 ```
-/plugin marketplace add YOUR_HANDLE/codeviz
+/plugin marketplace add yeshdev1/codeviz
 /plugin install codeviz
 ```
 
