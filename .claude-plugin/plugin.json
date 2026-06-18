@@ -1,0 +1,9 @@
+{
+  "name": "codeviz",
+  "version": "0.1.0",
+  "description": "Interactive system-design onboarding for any codebase — a clickable system-to-system map first, then the data model, then deep API docs.",
+  "author": { "name": "YOUR_NAME", "url": "https://github.com/YOUR_HANDLE" },
+  "homepage": "https://github.com/YOUR_HANDLE/codeviz",
+  "license": "MIT",
+  "keywords": ["code-visualization", "onboarding", "architecture", "system-design", "diagram", "claude-code", "skill"]
+}

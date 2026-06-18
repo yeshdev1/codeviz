@@ -1,0 +1,11 @@
+{
+  "name": "codeviz",
+  "owner": { "name": "YOUR_NAME", "url": "https://github.com/YOUR_HANDLE" },
+  "plugins": [
+    {
+      "name": "codeviz",
+      "source": "./",
+      "description": "Interactive system-design onboarding for any codebase."
+    }
+  ]
+}

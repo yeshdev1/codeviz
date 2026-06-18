@@ -1,0 +1,68 @@
+---
+name: codeviz
+description: Generate an illustrated, interactive system-design onboarding harness for a codebase — a system-to-system diagram FIRST, then the data model, then deep API docs. Use when someone needs to get up to speed on an unfamiliar codebase fast, or asks to "document the architecture / onboard onto this repo / explain how the system fits together."
+---
+
+# Onboard Harness
+
+Turn any codebase into a small set of **linked, illustrated, interactive HTML pages** that get a new engineer productive fast. The priority order is deliberate and non-negotiable:
+
+> **(1) how the systems talk to each other → (2) the data model → (3) the API in depth.**
+
+A newcomer needs the *map* before the *territory*. Most readers bounce off a wall of endpoints; almost nobody bounces off a diagram they can click. So the system-to-system map gets the most effort and comes first; the API page is the deepest but comes last.
+
+This skill was reverse-engineered from a hand-built set of system-design pages (an interactive `<canvas>` architecture diagram with auto-playing request walkthroughs and clickable component modals, a grouped data-model page, and a grouped API page on a shared component library). It ships that pattern as reusable assets.
+
+## What it produces
+
+Into an output dir (default `docs/onboarding/`):
+- **`system-map.html`** — the centerpiece. An interactive canvas where **every box is a real system and every arrow is a real call**. Click any box for its role + why it exists; pick a scenario to **auto-play a real request hop-by-hop** (a comet travels the active edge with a progress bar + narration). *Spend the most effort here.*
+- **`schema.html`** — the data model grouped by domain.
+- **`api.html`** — the API surface, in depth (the most detailed page).
+- **`index.html`** — a hub linking them ("read in this order: system map → data model → API").
+- **`harness.css`** — the shared component library (copied from `assets/`).
+
+Reusable assets bundled with this skill:
+- `assets/harness.css` — the full component library (cards, flows, tables, timeline, callouts, **the canvas + tracer + modal CSS**).
+- `assets/system-map.template.html` — a complete, runnable interactive-diagram page with a generic 6-node example and four clearly marked `@@ REPLACE @@` blocks. Adapt it; don't rewrite the engine.
+
+## The mechanism: Plan → Generate → Debug → Deliver
+
+### Phase 0 — Detect the stack
+Scan package manifests, `Dockerfile`/`docker-compose`, `infra/`, `.env.example`, README, CI. Identify: language(s), framework, datastore(s), cache, queue/worker, 3rd-party providers, client apps, storage/CDN. Write a one-paragraph stack summary (it seeds the hub page). Spawn an `Explore` agent for the sweep if the repo is large; keep only the findings.
+
+### Phase 1 — SYSTEM-TO-SYSTEM MAP  (the priority — build this first, make it interactive)
+This is what actually unblocks a newcomer.
+1. **Nodes** — enumerate the real systems: client apps · the API/services · datastores · cache · queue/workers · 3rd parties · CDN/storage. For each fill `{ x, y, w, h, label, sub, status, about, resp:[], notes:[] }`. `status` ∈ `built` (code exists today) · `partial` · `planned`. **Cite the file(s)** each node maps to as you go.
+2. **Edges** — grep for cross-system calls: HTTP clients (`fetch`/`axios`/router mounts), SDK inits (Stripe/Twilio/…), DB client + queries, queue `.add()`/publish, pub/sub subscribe, presigned-upload/CDN URLs. For each edge `['from','to','label','style']` with `style` ∈ `solid` (sync request) · `dash` (async event/webhook/queue/pub-sub) · `thick` (bulk bytes/media that bypass the API). Label with the real route/payload.
+3. **Flows** — pick **1–3 critical end-to-end paths** a newcomer MUST understand (the core write path, the auth flow, the money/most-contended path). Express each as ordered hops `{ from, to, payload, text }`; `from`/`to` must be node keys. Prefer flows that traverse the most systems — the point is to show how the boxes connect under a real request.
+4. **Render** — copy `assets/system-map.template.html` + `assets/harness.css` into the output dir; replace the four `@@ REPLACE @@` blocks (`NODES`, `EDGES`, `DETAIL`, `SCENARIOS`) and `@@PROJECT@@`. Lay nodes out **by tier** on the 880×510 grid (clients top → API → data → workers → 3rd-parties bottom); don't let boxes overlap.
+5. Write modal `DETAIL` only for the **4–6 most important nodes** (tier/cap/why/alts/learn) — don't over-document trivia.
+
+### Phase 2 — DATA MODEL
+Extract entities from the real schema source: ORM models / migrations / `schema.sql` / Prisma·Drizzle·SQLAlchemy·ActiveRecord·Ecto. Group by domain. Per table: name, key columns, purpose, built-vs-planned. Generate `schema.html` — a `.frame` page with grouped, anchored `<h2>` sections and `<table>`s (reuse `harness.css`); link each domain back to the system-map node it lives behind.
+
+### Phase 3 — API DEPTH  (go deep — the most detailed page)
+Extract **every** route from the router/handlers/OpenAPI/annotations. Per endpoint: method · path · auth · params/body · **what it touches** (which tables/services — tie each back to a system-map node) · sync vs async · built-vs-planned. Group by area (auth, the core domain, payments, media, …). Generate `api.html`. This is where depth belongs — don't summarize it away.
+
+### Debug — interpret the code (understand it, don't audit it)
+"Debug" here = read the code closely enough to explain what it actually *does*, so the diagram, flows, schema and routes reflect real behaviour — **not** to check the code is correct. Ground each node/edge/flow in the source you read (cite `file:line`); drop anything you can't actually find rather than guessing. If you happen to spot a real bug while reading, **raise a flag** — add it to a short `⚠ Noticed while reading` list on the hub page — then move on. Don't fix it, don't go bug-hunting, don't audit for correctness.
+
+### Deliver
+Assemble `index.html` (stack summary + tiles to the three pages, in reading order). **Validate every page's inline JS with `node --check`** (extract `<script>` blocks, check syntax) and confirm the template's required IDs survive (`archCanvas`, `scenSeg`, `scenStep`, `scenBar`, `scenPrev/Play/Next`, `scenCount`, `scenEdges`, `compDetail`, `compModal`). Tell the user the output path and that it opens via `file://` (online for the Lucide icon CDN). Optionally serve it.
+
+## Filling the template — quick reference
+- **Node:** `{ x, y, w, h, label, sub, status, about, resp:[], notes:[] }`. `status` ∈ `built|partial|planned`.
+- **Edge:** `['from','to','label','style']`, `style` ∈ `solid|dash|thick`.
+- **Scenario:** `{ id, label, steps:[{from,to,payload,text}], solved:[], deferred:[] }`. Each step animates a comet on the `from→to` edge, so **that edge must exist** or the hop won't draw — reuse an existing edge or add one. Scenario buttons auto-sort by step count (hot→cool) and `SCENARIOS[0]` auto-plays.
+- **Secondary nodes** a step writes/reads but that aren't its `from`/`to`: add `touch:['nodeId', …]` to the step so they light up too (e.g. a `POST` hop whose handler writes a table — `touch` that datastore node). This keeps the highlight honest: every system the narration names actually lights.
+- Use ASCII art only as a last resort — the canvas is the diagram.
+
+## Scope dials
+- **Quick** (one service): ~6–10 nodes, 1 flow, schema + the key routes.
+- **Thorough** (monorepo): nodes per service + datastores + 3rd parties, 2–3 flows, full schema, full API, a verifier pass per page.
+
+## House style
+- `harness.css` carries the whole component library — **reuse its classes; don't write new CSS** unless a section genuinely needs it.
+- Keep prose at **"claim + one-line why"** density. The interactivity does the teaching, not paragraphs.
+- Honesty: mark `planned` what isn't built; never let the diagram imply a system exists when it's only proposed.
