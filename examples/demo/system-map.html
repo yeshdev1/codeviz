@@ -48,25 +48,33 @@
     var W = 880, H = 510;            // logical coordinate space
 
     // @@ REPLACE: one entry per system in YOUR codebase — clients, services, datastores,
-    // queues/workers, 3rd parties, CDN/storage. Lay them out on the 880x510 grid by tier
-    // (clients top, edge/API next, data middle, workers, 3rd-parties bottom). status: built|partial|planned.
+    // queues/workers, 3rd parties, CDN/storage. status: built|partial|planned.
+    //
+    // LAYOUT — two options:
+    //   (a) hand-placed: give each node {x,y} on the 880x510 grid (clients top → API →
+    //       data → workers → 3rd-parties bottom). This is the default; the demo below uses it.
+    //   (b) auto-layout (elkjs): OMIT x/y and instead give each node a `tier` (0 = top).
+    //       Positions are then computed automatically — no overlaps, scales to many nodes.
+    //       Force it on a hand-placed map too by opening the page with ?layout=elk
+    //       (lazy-loads elkjs; falls back to a built-in tier-stack if offline).
+    //   `tier` is always recommended — it's the layer hint auto-layout uses and is harmless otherwise.
     var NODES = {
-      web:   { x: 360, y: 44,  w: 160, h: 50, label: 'Client', sub: 'web / mobile', status: 'built',
+      web:   { tier: 0, x: 360, y: 44,  w: 160, h: 50, label: 'Client', sub: 'web / mobile', status: 'built',
         about: 'The user-facing app. Calls the API; never touches the datastores directly.',
         resp: ['Renders the UI', 'Calls the API over HTTP'], notes: [] },
-      api:   { x: 360, y: 158, w: 160, h: 54, label: 'API', sub: 'service', status: 'built',
+      api:   { tier: 1, x: 360, y: 158, w: 160, h: 54, label: 'API', sub: 'service', status: 'built',
         about: 'The single service that owns business logic and is the only thing that writes to the database.',
         resp: ['Validates and serves requests', 'Owns the write path', 'Enqueues slow work'], notes: [] },
-      pg:    { x: 150, y: 290, w: 155, h: 54, label: 'Database', sub: 'Postgres', status: 'built',
+      pg:    { tier: 2, x: 150, y: 290, w: 155, h: 54, label: 'Database', sub: 'Postgres', status: 'built',
         about: 'The source of truth. Relational, transactional.',
         resp: ['Stores all core entities', 'Serializes writes in transactions'], notes: [] },
-      redis: { x: 365, y: 290, w: 150, h: 54, label: 'Cache', sub: 'Redis', status: 'built',
+      redis: { tier: 2, x: 365, y: 290, w: 150, h: 54, label: 'Cache', sub: 'Redis', status: 'built',
         about: 'In-memory cache + queue backend, so hot reads avoid the database.',
         resp: ['Caches hot reads', 'Backs the job queue'], notes: [] },
-      queue: { x: 575, y: 290, w: 160, h: 54, label: 'Worker', sub: 'background jobs', status: 'built',
+      queue: { tier: 2, x: 575, y: 290, w: 160, h: 54, label: 'Worker', sub: 'background jobs', status: 'built',
         about: 'Runs slow / unreliable work off the request path with retries.',
         resp: ['Sends notifications', 'Runs scheduled + retryable jobs'], notes: [] },
-      ext:   { x: 365, y: 420, w: 160, h: 50, label: '3rd party', sub: 'e.g. payments', status: 'planned',
+      ext:   { tier: 3, x: 365, y: 420, w: 160, h: 50, label: '3rd party', sub: 'e.g. payments', status: 'planned',
         about: 'An external provider the worker calls (payments, SMS, email, etc.).',
         resp: ['Provider-side capability'], notes: [] }
     };
@@ -375,10 +383,92 @@
     document.getElementById('scenPrev').addEventListener('click', prevStep);
     playBtn.addEventListener('click', togglePlay);
 
+    // ---------- auto-layout (elkjs) ----------
+    // Runs only when forced (?layout=elk) or when a node omits x/y. Hand-placed maps
+    // render unchanged and never even fetch elkjs. Writes x/y back onto NODES, then the
+    // draw / edge-anchor / hit-test code above runs untouched (it only reads n.x/n.y).
+    function missingCoords() {
+      return Object.keys(NODES).some(function (id) { return typeof NODES[id].x !== 'number'; });
+    }
+    function needsLayout() {
+      return /[?&]layout=elk(\b|$)/.test(location.search) || missingCoords();
+    }
+    function loadElk(cb) {
+      if (typeof ELK !== 'undefined') { cb(true); return; }
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/elkjs@0.11.1/lib/elk.bundled.js';
+      s.onload = function () { cb(typeof ELK !== 'undefined'); };
+      s.onerror = function () { cb(false); };
+      document.head.appendChild(s);
+    }
+    // Built-in fallback so coordless maps still render when elkjs can't load (offline):
+    // stack nodes in centered rows, one row per tier.
+    function fallbackLayout() {
+      var rows = {}, order = [];
+      Object.keys(NODES).forEach(function (id) {
+        var t = NODES[id].tier || 0;
+        if (!rows[t]) { rows[t] = []; order.push(t); }
+        rows[t].push(id);
+      });
+      order.sort(function (a, b) { return a - b; });
+      var gap = 40, rowGap = 64, pad = 28, maxRowW = 0, rowW = {};
+      order.forEach(function (t) {
+        rowW[t] = rows[t].reduce(function (s, id) { return s + NODES[id].w + gap; }, gap);
+        if (rowW[t] > maxRowW) maxRowW = rowW[t];
+      });
+      var y = pad;
+      order.forEach(function (t) {
+        var x = pad + (maxRowW - rowW[t]) / 2, rowH = 0;
+        rows[t].forEach(function (id) {
+          var n = NODES[id]; n.x = x; n.y = y; x += n.w + gap; if (n.h > rowH) rowH = n.h;
+        });
+        y += rowH + rowGap;
+      });
+      W = Math.max(420, Math.ceil(maxRowW + pad));
+      H = Math.max(220, Math.ceil(y - rowGap + pad));
+    }
+    function initLayout(done) {
+      if (!needsLayout()) { done(); return; }
+      var coordless = missingCoords();
+      loadElk(function (ok) {
+        if (!ok) { if (coordless) fallbackLayout(); done(); return; }
+        try {
+          var elk = new ELK();
+          var graph = {
+            id: 'root',
+            layoutOptions: {
+              'elk.algorithm': 'layered',
+              'elk.direction': 'DOWN',
+              'elk.partitioning.activate': 'true',
+              'elk.layered.spacing.nodeNodeBetweenLayers': '58',
+              'elk.spacing.nodeNode': '42',
+              'elk.padding': '[top=24,left=24,bottom=24,right=24]'
+            },
+            children: Object.keys(NODES).map(function (id) {
+              var n = NODES[id];
+              return { id: id, width: n.w, height: n.h,
+                layoutOptions: { 'elk.partitioning.partition': String(n.tier || 0) } };
+            }),
+            edges: EDGES.map(function (e, i) { return { id: 'e' + i, sources: [e[0]], targets: [e[1]] }; })
+          };
+          elk.layout(graph).then(function (res) {
+            (res.children || []).forEach(function (c) {
+              var n = NODES[c.id]; if (n) { n.x = c.x; n.y = c.y; }
+            });
+            if (res.width) W = Math.max(420, Math.ceil(res.width));
+            if (res.height) H = Math.max(220, Math.ceil(res.height));
+            done();
+          }).catch(function () { if (coordless) fallbackLayout(); done(); });
+        } catch (err) { if (coordless) fallbackLayout(); done(); }
+      });
+    }
+
     window.addEventListener('resize', resize);
-    resize();
-    requestAnimationFrame(draw);
-    setScenario(0);
+    initLayout(function () {
+      resize();
+      requestAnimationFrame(draw);
+      setScenario(0);
+    });
   })();
   if (window.lucide) lucide.createIcons();
 </script>
