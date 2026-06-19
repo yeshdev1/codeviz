@@ -4,3 +4,7 @@ node_modules/
 test-results/
 playwright-report/
 .playwright/
+
+# scratch area for verifying codeviz against real repos — cloned codebases
+# and the onboarding HTML generated from them never get committed
+playground/
