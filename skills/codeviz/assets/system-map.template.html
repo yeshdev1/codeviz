@@ -2,10 +2,23 @@
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>@@PROJECT@@ — System map</title>
 <style>
+  /* @@THEME@@ — the whole palette lives here so a project can recolour the atlas.
+     codeviz's `theme` scope overwrites this block with the detected palette (or links a
+     theme.css after it). The canvas reads the --cv-* tokens at runtime via getComputedStyle,
+     so changing these recolours the diagram too, not just the page chrome.
+     Per-layer hues are DATA (DOMAINS[].col); the viridis latency ramp is fixed (CVD-safe). */
   :root{
+    /* page chrome */
     --bg:#1c1c1c; --card:#2e2e2e; --ink:#ededed; --sub:#9b9b9b; --line:rgba(255,255,255,0.16);
     --accent:#3ecf8e; --comet:#7ff0bd; --faint:#6a6a6a; --panel:#161616; --back:#f5a623;
+    /* canvas (read by JS) */
+    --cv-ink:#ededed; --cv-sub:#9b9b9b; --cv-card:#2e2e2e; --cv-edge:#3ecf8e; --cv-comet:#7ff0bd;
+    --cv-faint:#6a6a6a; --cv-back:#f5a623; --cv-warn:#f5b34a; --cv-line:rgba(255,255,255,0.16);
+    --cv-chip:#101010; --cv-focus:#0e3b29; --cv-req:#3b9dff; --cv-resp:#ff9e3d;
+    /* floating glass panels (legend / tour / minimap / tooltip) */
+    --glass:rgba(22,22,22,0.94);
   }
+  /* @@THEME-END@@ */
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
   body{background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
@@ -30,7 +43,7 @@
   .pill{padding:7px 12px;font-weight:600;font-size:12.5px;color:var(--sub)}
   .pill:hover{color:var(--ink)}
   .pill.on{color:#06281b;background:var(--accent);border-color:var(--accent)}
-  .legend{position:absolute;right:16px;top:69px;width:210px;background:rgba(22,22,22,0.92);border:1px solid var(--line);border-radius:12px;padding:12px 13px;z-index:5;font-size:12px;color:var(--sub)}
+  .legend{position:absolute;right:16px;top:69px;width:210px;background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:12px 13px;z-index:5;font-size:12px;color:var(--sub)}
   .legend h4{margin:0 0 7px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--ink)}
   .legend .row{display:flex;align-items:center;gap:8px;margin:5px 0}
   .legend .sw{width:16px;height:0;border-top:2px solid var(--accent);flex:none}
@@ -44,7 +57,7 @@
   .legend .note{display:block;margin-top:9px;font-size:11px;line-height:1.45;color:var(--sub)}
   .legend .note em{color:var(--ink);font-style:normal;font-weight:700}
   /* narration / tour panel */
-  .narr{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;width:min(680px,calc(100% - 40px));background:rgba(22,22,22,0.95);border:1px solid var(--line);border-radius:14px;padding:13px 16px;z-index:6;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .narr{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;width:min(680px,calc(100% - 40px));background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:13px 16px;z-index:6;box-shadow:0 10px 40px rgba(0,0,0,.45)}
   .narr.hidden{display:none}
   .narr .nh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .narr .nh .step{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
@@ -65,12 +78,12 @@
   .narr .scenpick .pill{color:#d9caff;background:rgba(150,120,255,0.14);border-color:rgba(150,120,255,0.5)}
   .narr .scenpick .pill:hover{color:#fff;background:rgba(150,120,255,0.26)}
   .narr .scenpick .pill.on{color:#1b1233;background:#b49bff;border-color:#b49bff;font-weight:700}
-  .tip{position:fixed;z-index:30;max-width:280px;background:#101010;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--ink);box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none}
+  .tip{position:fixed;z-index:30;max-width:280px;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--ink);box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none}
   .tip.hidden{display:none}
   .tip b{color:var(--ink)} .tip .meta{color:var(--sub);font-size:11px;margin:2px 0 5px}
   .tip ol{margin:4px 0 0;padding-left:16px;color:var(--sub)} .tip li{margin:2px 0}
   .tip .tt{font-size:9.5px;font-weight:800;letter-spacing:.7px;color:var(--sub);margin-bottom:3px}
-  .focusbar{position:absolute;left:16px;bottom:18px;z-index:6;background:rgba(22,22,22,0.95);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;display:none;align-items:center;gap:10px}
+  .focusbar{position:absolute;left:16px;bottom:18px;z-index:6;background:var(--glass);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;display:none;align-items:center;gap:10px}
   .focusbar.show{display:flex}
   .focusbar b{color:var(--accent)}
   .focusbar button{appearance:none;background:transparent;border:1px solid var(--line);color:var(--sub);border-radius:7px;padding:5px 9px;cursor:pointer;font:600 12px inherit}
@@ -159,6 +172,13 @@
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   var dpr = Math.max(1, window.devicePixelRatio||1);
   var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // read the theme tokens from CSS so the canvas follows the project palette (see @@THEME@@).
+  function cvar(n,fb){ try{ var v=getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return v||fb; }catch(e){ return fb; } }
+  var COL={ ink:cvar('--cv-ink','#ededed'), sub:cvar('--cv-sub','#9b9b9b'), card:cvar('--cv-card','#2e2e2e'),
+    edge:cvar('--cv-edge','#3ecf8e'), comet:cvar('--cv-comet','#7ff0bd'), faint:cvar('--cv-faint','#6a6a6a'),
+    back:cvar('--cv-back','#f5a623'), warn:cvar('--cv-warn','#f5b34a'), line:cvar('--cv-line','rgba(255,255,255,0.16)'),
+    chip:cvar('--cv-chip','#101010'), focus:cvar('--cv-focus','#0e3b29'), req:cvar('--cv-req','#3b9dff'), resp:cvar('--cv-resp','#ff9e3d'),
+    glass:cvar('--glass','rgba(22,22,22,0.94)') };
 
   /* ====================== PROJECT DATA — fill these five @@ REPLACE @@ blocks ======================
      Everything ABOVE and BELOW this section is the reusable engine — do not rewrite it.
@@ -377,7 +397,7 @@
 
   /* ---------- drawing ---------- */
   function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-  function statusCol(s){ return s==='built'?'#3ecf8e':s==='partial'?'#f5b34a':'#6a6a6a'; }
+  function statusCol(s){ return s==='built'?COL.edge:s==='partial'?COL.warn:COL.faint; }
   // hierarchical edge bundling: route each edge through a vertical "channel" so edges
   // spanning the same layers merge into a soft trunk (Holten). lane offsets fan the few
   // aggregated continent edges apart so their count badges stay readable.
@@ -397,7 +417,7 @@
   //   request OUT (from→to) = BLUE  ·  response BACK (to→from) = ORANGE  (CVD-safe pair).
   // speed = latency (slow link → packets crawl) · bulk bytes ride as fat chunks instead of dots.
   // Reduced-motion → static two-colour chevrons. No edge is ever one-way.
-  var FLOW_OUT='#3b9dff', FLOW_BACK='#ff9e3d';
+  var FLOW_OUT=COL.req, FLOW_BACK=COL.resp;
   function flowPeriod(e){ var ms=typeof e[4]==='number'?e[4]:null; return ms==null?1700:(900+latT(ms)*2600); } // ms to cross
   // one stream of packets. dir +1 = from→to, -1 = return. off = which side of the line.
   function flowLane(a,c,b,e,col,alpha,iz,T,dir,off,style){
@@ -435,7 +455,7 @@
   function drawTourComet(iz){
     if(!(tour.on && trace)){ tourContentHit=null; return; }
     var a=center(NODES[trace.from]), b=center(NODES[trace.to]), c=bundle(a.x,a.y,b.x,b.y,0);
-    var resp=trace.dir==='resp', col=resp?'#ff9e3d':'#3b9dff', it=tour.list[tour.i]||{};
+    var resp=trace.dir==='resp', col=resp?COL.resp:COL.req, it=tour.list[tour.i]||{};
     for(var ti=6;ti>=0;ti--){ var tp=trace.prog-ti*0.05; if(tp<0||tp>1) continue;
       var p=cpt(a.x,a.y,c,b.x,b.y,tp);
       ctx.globalAlpha=ti===0?1:Math.max(0,0.5-ti*0.08); ctx.fillStyle=col;
@@ -447,7 +467,7 @@
     ctx.globalAlpha=1; ctx.font='800 '+(iz*10)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     var lt=(resp?'↩ '+(it.payload||'response'):'→ '+(it.payload||''))+(lat!=null?'   ·   '+lat+'ms':'');
     var tw=ctx.measureText(lt).width, bx=lp.x-tw/2-iz*7, by=lp.y-iz*9, bw=tw+iz*14, bh=iz*18;
-    ctx.fillStyle='#101010'; rr(bx,by,bw,bh,iz*6); ctx.fill();
+    ctx.fillStyle=COL.chip; rr(bx,by,bw,bh,iz*6); ctx.fill();
     ctx.lineWidth=iz; ctx.strokeStyle=col; ctx.stroke();
     ctx.fillStyle=col; ctx.fillText(lt,lp.x,lp.y);
     ctx.globalAlpha=1;
@@ -487,7 +507,7 @@
       ctx.fillStyle=d.col;
       ctx.fillText(d.label, r.x+iz*4, r.y-iz*(svc>0.5?8:11));
       if(svc<0.6){
-        ctx.font='600 '+(iz*11)+'px -apple-system,sans-serif'; ctx.fillStyle='#9b9b9b';
+        ctx.font='600 '+(iz*11)+'px -apple-system,sans-serif'; ctx.fillStyle=COL.sub;
         ctx.fillText(d.blurb+' · '+d.members.length+(d.members.length>1?' systems':' system'), r.x+iz*4, r.y-iz*(svc>0.5?8:11)+iz*15*(1-svc)+iz*2);
       }
     });
@@ -513,9 +533,9 @@
         var mid=cpt(a.x,a.y,c,b.x,b.y,0.5), btxt=de.count+(de.count>1?' calls':' call');
         ctx.font='700 '+(iz*10)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         var bw=ctx.measureText(btxt).width+iz*12;
-        ctx.fillStyle='#101010'; rr(mid.x-bw/2,mid.y-iz*9,bw,iz*18,iz*6); ctx.fill();
+        ctx.fillStyle=COL.chip; rr(mid.x-bw/2,mid.y-iz*9,bw,iz*18,iz*6); ctx.fill();
         ctx.lineWidth=iz; ctx.strokeStyle=back?'rgba(245,166,35,0.6)':'rgba(62,207,142,0.4)'; ctx.stroke();
-        ctx.fillStyle='#ededed'; ctx.fillText(btxt, mid.x, mid.y);
+        ctx.fillStyle=COL.ink; ctx.fillText(btxt, mid.x, mid.y);
       });
     }
     // individual edges (fade in with services)
@@ -526,7 +546,7 @@
         // during a tour, the hop currently being traversed (either direction) stays bright
         var onTour = trace && ((e[0]===trace.from&&e[1]===trace.to)||(e[0]===trace.to&&e[1]===trace.from));
         ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
-        var ecol = back?'#f5a623':(e[3]==='thick'?'#ededed':'#3ecf8e');
+        var ecol = back?COL.back:(e[3]==='thick'?COL.ink:COL.edge);
         // bulk transfers get a faint wide ribbon so "lots of bytes move here" reads instantly
         if(e[3]==='thick'){ ctx.globalAlpha=svc*(hv||onTour?0.5:lit?0.34:0.13); ctx.strokeStyle=ecol; ctx.lineWidth=iz*12; ctx.lineCap='round'; cstroke(a.x,a.y,c,b.x,b.y); ctx.lineCap='butt'; }
         ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
@@ -565,23 +585,23 @@
         var traceLit = !trace || id===trace.from || id===trace.to;
         ctx.globalAlpha = svc * doi * (traceLit?1:0.25);
         rr(n.x,n.y,n.w,n.h,12);
-        ctx.fillStyle = isFocus?'#0e3b29':'#2e2e2e'; ctx.fill();
+        ctx.fillStyle = isFocus?COL.focus:COL.card; ctx.fill();
         ctx.lineWidth=iz*(isFocus||isHover?2.6:1.6);
-        ctx.strokeStyle=isFocus?'#3ecf8e':(isHover?'#7ff0bd':hexA(domColor(id),0.7)); ctx.stroke();
+        ctx.strokeStyle=isFocus?COL.edge:(isHover?COL.comet:hexA(domColor(id),0.7)); ctx.stroke();
         // layer colour accent stripe down the left edge (redundant grouping cue)
         if(!isFocus){ ctx.save(); rr(n.x,n.y,n.w,n.h,12); ctx.clip();
           ctx.fillStyle=domColor(id); ctx.fillRect(n.x, n.y, iz*4, n.h); ctx.restore(); }
         // status dot
         ctx.fillStyle=statusCol(n.status); ctx.beginPath(); ctx.arc(n.x+iz*13+0,n.y+iz*13,iz*3.6,0,7); ctx.fill();
         // label
-        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#ededed';
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=COL.ink;
         ctx.font='800 '+(iz*13)+'px -apple-system,sans-serif';
         ctx.fillText(n.label, n.x+n.w/2, n.y+ (n.sub? n.h/2-iz*7 : n.h/2));
-        if(n.sub){ ctx.font='500 '+(iz*10)+'px -apple-system,sans-serif'; ctx.fillStyle='#9b9b9b'; ctx.fillText(n.sub,n.x+n.w/2,n.y+n.h/2+iz*8); }
+        if(n.sub){ ctx.font='500 '+(iz*10)+'px -apple-system,sans-serif'; ctx.fillStyle=COL.sub; ctx.fillText(n.sub,n.x+n.w/2,n.y+n.h/2+iz*8); }
         // detail: responsibilities below the box at deep zoom
         if(det>0 && n.resp){
           ctx.globalAlpha=svc*doi*det*(traceLit?1:0.25);
-          ctx.textAlign='center'; ctx.fillStyle='#9b9b9b'; ctx.font='500 '+(iz*9.5)+'px -apple-system,sans-serif';
+          ctx.textAlign='center'; ctx.fillStyle=COL.sub; ctx.font='500 '+(iz*9.5)+'px -apple-system,sans-serif';
           n.resp.forEach(function(r,ri){ ctx.fillText('• '+r, n.x+n.w/2, n.y+n.h+iz*(12+ri*13)); });
         }
       });
@@ -600,14 +620,14 @@
     var w=WORLD.w*s, h=WORLD.h*s, x=vw()-w-18, y=vh()-h-18;
     mm={x:x,y:y,w:w,h:h,s:s};
     ctx.globalAlpha=1;
-    ctx.fillStyle='rgba(16,16,16,0.92)'; rr(x-8,y-8,w+16,h+16,10); ctx.fill();
-    ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,0.16)'; ctx.stroke();
+    ctx.fillStyle=COL.glass; rr(x-8,y-8,w+16,h+16,10); ctx.fill();
+    ctx.lineWidth=1; ctx.strokeStyle=COL.line; ctx.stroke();
     DOMAINS.forEach(function(d){ var r=d.rect; ctx.fillStyle=hexA(d.col,0.22); ctx.fillRect(x+r.x*s,y+r.y*s,r.w*s,r.h*s); });
-    Object.keys(NODES).forEach(function(id){ var n=NODES[id]; ctx.fillStyle=(id===focusId)?'#3ecf8e':statusCol(n.status);
+    Object.keys(NODES).forEach(function(id){ var n=NODES[id]; ctx.fillStyle=(id===focusId)?COL.edge:statusCol(n.status);
       ctx.fillRect(x+n.x*s, y+n.y*s, Math.max(2,n.w*s), Math.max(2,n.h*s)); });
     // viewport box
     var tl=screenToWorld(0,0), br=screenToWorld(vw(),vh());
-    ctx.lineWidth=1.5; ctx.strokeStyle='#7ff0bd';
+    ctx.lineWidth=1.5; ctx.strokeStyle=COL.comet;
     ctx.strokeRect(x+clamp(tl.x,0,WORLD.w)*s, y+clamp(tl.y,0,WORLD.h)*s, Math.min((br.x-tl.x),WORLD.w)*s, Math.min((br.y-tl.y),WORLD.h)*s);
   }
   function mmHit(sx,sy){ return mm && sx>=mm.x-8 && sx<=mm.x+mm.w+8 && sy>=mm.y-8 && sy<=mm.y+mm.h+8; }
@@ -657,7 +677,7 @@
   function edgeTipHTML(ei){ var e=EDGES[ei],k=e[0]+'>'+e[1],st=EDGE_DETAIL[k],kind=e[3]==='dash'?'async event / stream':(e[3]==='thick'?'bulk data transfer (bypasses the API)':'sync request'); return '<div class="tt">THE CONNECTION</div><b>'+NODES[e[0]].label+' → '+NODES[e[1]].label+'</b><div class="meta">'+e[2]+' · '+kind+(typeof e[4]==='number'?' · ~'+e[4]+'ms':'')+(isBack(e)?' · calls up a layer':'')+'</div>'+(st?'<ol>'+st.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>':'')+(tour.on?'<div class="meta" style="margin-top:5px;opacity:.75">Hover the moving label to see what’s being sent.</div>':''); }
   // hovering the CONTENT label (≠ the line): explain the actual payload / response, not the link
   function contentTipHTML(it,resp,lat){
-    var h='<div class="tt" style="color:'+(resp?'#ff9e3d':'#3b9dff')+'">'+(resp?'WHAT COMES BACK':'WHAT’S BEING SENT')+'</div>';
+    var h='<div class="tt" style="color:'+(resp?COL.resp:COL.req)+'">'+(resp?'WHAT COMES BACK':'WHAT’S BEING SENT')+'</div>';
     h+='<b>'+(it.payload||(resp?'response':''))+'</b>'+(lat!=null?' <span class="meta">~'+lat+'ms</span>':'');
     h+='<div style="margin:3px 0 4px">'+(it.text||'')+'</div>';
     if(it.detail) h+='<div class="meta">'+it.detail+'</div>';
@@ -761,7 +781,7 @@
     return reqs.concat(resps);
   }
   function showTourStep(){
-    var it=tour.list[tour.i], N=tour.list.length, resp=it.dir==='resp', col=resp?'#ff9e3d':'#3b9dff';
+    var it=tour.list[tour.i], N=tour.list.length, resp=it.dir==='resp', col=resp?COL.resp:COL.req;
     trace={from:it.from,to:it.to,dir:it.dir,prog:0}; tour.t0=0;
     var a=NODES[it.from],b=NODES[it.to];
     var r={x:Math.min(a.x,b.x)-50,y:Math.min(a.y,b.y)-50}; r.w=Math.max(a.x+a.w,b.x+b.w)-r.x+50; r.h=Math.max(a.y+a.h,b.y+b.h)-r.y+80;
@@ -829,7 +849,7 @@
     next:tourNext, pause:function(){tour.play=false;},
     contentScreen:function(){ if(!tourContentHit)return null; return worldToScreen(tourContentHit.x+tourContentHit.w/2, tourContentHit.y+tourContentHit.h/2); },
     lineScreen:function(){ if(!trace)return null; var a=center(NODES[trace.from]),b=center(NODES[trace.to]),c=bundle(a.x,a.y,b.x,b.y,0),p=cpt(a.x,a.y,c,b.x,b.y,0.8); return worldToScreen(p.x,p.y); },
-    NODES:NODES, EDGES:EDGES, DOMAINS:DOMAINS, snap:function(){ camT={z:cam.z,x:cam.x,y:cam.y}; } };
+    NODES:NODES, EDGES:EDGES, DOMAINS:DOMAINS, COL:COL, snap:function(){ camT={z:cam.z,x:cam.x,y:cam.y}; } };
 })();
 </script>
 </body></html>
