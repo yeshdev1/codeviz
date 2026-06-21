@@ -29,6 +29,24 @@ Reusable assets bundled with this skill:
 
 ## The mechanism: Plan → Generate → Debug → Deliver
 
+### Scope & estimate — DO THIS FIRST (so the user only pays for what they want)
+codeviz is **granular**: each output is opt-in. A full run on a large repo can cost **150k+ tokens**, so never silently generate everything — scope it first.
+
+1. **Honor an explicit scope** if the invocation carries one (e.g. `/codeviz map`): run only that and skip this dialog. Scopes: `map` · `schema` · `api` · `steps` · `theme` · `full`.
+2. **Otherwise estimate + ask.** Do a *cheap* size scan (count services/containers, DB tables/models, routes) and present a short table, then let the user pick which to run and drop the rest:
+
+   | scope | output | rough cost* |
+   |---|---|---|
+   | `map` | `system-map.html` — the interactive diagram (+ hub) | ~30–70k |
+   | `steps` | richer guided-tour steps (request/response + jargon) on an existing map | ~8–20k |
+   | `schema` | `schema.html` — the data model | ~15–35k |
+   | `api` | `api.html` — full API surface (deepest) | ~40–110k |
+   | `theme` | detect palette + theme the pages | ~3–8k |
+   | `full` | everything above | ~90–200k |
+
+   *Rough, output-token order-of-magnitude; scale by the size scan (×~0.5 for a tiny service, ×~2 for a large monorepo). State that it's an estimate, not a quote.
+3. **Run only the selected scopes.** If the user picks just `map`, do Phase 1 (+ a minimal hub) and stop — don't build schema/api. Default recommendation for a newcomer on a budget: **`map` + `steps`** (the highest-leverage, lowest-cost combination).
+
 ### Phase 0 — Detect the stack
 Scan package manifests, `Dockerfile`/`docker-compose`, `infra/`, `.env.example`, README, CI. Identify: language(s), framework, datastore(s), cache, queue/worker, 3rd-party providers, client apps, storage/CDN. Write a one-paragraph stack summary (it seeds the hub page). Spawn an `Explore` agent for the sweep if the repo is large; keep only the findings.
 

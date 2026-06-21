@@ -2,20 +2,7 @@
 
 **Interactive system-design onboarding for any codebase** — a [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin.
 
-Point it at a repo and it generates a small set of linked, illustrated, *interactive* HTML pages that get a new engineer productive fast. The priority order is deliberate:
-
-> **(1) how the systems talk to each other → (2) the data model → (3) the API in depth.**
-
-A newcomer needs the *map* before the *territory*.
-
-## What you get
-
-- **`system-map.html`** — the centerpiece: an interactive `<canvas>` where **every box is a real system and every arrow is a real call**. Click any box for its role and why it exists; pick a scenario to **auto-play a real request hop-by-hop** (a comet travels the active edge with a progress bar + narration).
-- **`schema.html`** — the data model, grouped by domain.
-- **`api.html`** — the API surface, in depth.
-- **`index.html`** — a hub linking them, on a shared component library (`harness.css`).
-
-See [`examples/demo/system-map.html`](examples/demo/system-map.html) for a live demo (open it in a browser — it loads icons from a CDN, so be online).
+Point it at a repo and it generates linked, *interactive* HTML pages that get a new engineer productive fast: a zoomable **system-design atlas** (every box a real system, every arrow a real call, with an animated request/response tour), a data-model page, and a deep API page. See [`examples/demo/system-map.html`](examples/demo/system-map.html).
 
 ## Install
 
@@ -24,38 +11,36 @@ See [`examples/demo/system-map.html`](examples/demo/system-map.html) for a live 
 /plugin install codeviz
 ```
 
-Then, in any repository:
+## Run only what you need (and see the cost first)
+
+codeviz is **granular** — each output is opt-in, because a full run on a large repo can cost **150k+ tokens**. Run `/codeviz` with **no scope** and it size-scans the repo, shows a token estimate per piece, and lets you pick which to generate and drop the rest. Or name a scope to skip the dialog:
+
+| command | does this one thing | rough cost* |
+|---|---|---|
+| `/codeviz map` | boot the **interactive system-design diagram** (`system-map.html` + hub) | ~30–70k |
+| `/codeviz steps` | add **detailed request/response descriptions + jargon** to each guided-tour step | ~8–20k |
+| `/codeviz schema` | the **data model** page (`schema.html`) | ~15–35k |
+| `/codeviz api` | the **full API surface**, in depth (`api.html`) | ~40–110k |
+| `/codeviz theme` | detect the repo's palette and **theme** the pages | ~3–8k |
+| `/codeviz full` | everything above | ~90–200k |
+| `/codeviz` | **estimate + pick** which of the above to run | — |
+
+\* Rough order-of-magnitude (output tokens); codeviz scales it by repo size and shows a real estimate before running. Lowest-cost high-value combo for a newcomer: **`map` + `steps`**.
+
+## Dig deeper, with a budget cap
 
 ```
-/codeviz
+/dig-codeviz <step or node>
 ```
 
-## How it works — Plan → Generate → Debug → Deliver
+Adds **one** level of code-grounded explanation (read from the real source, cited `file:line`) to a step of an existing map. It counts your digs in `docs/onboarding/.codeviz-dig.json` and **hard-stops after 5** — past that it points you at the files to read instead, so curiosity can't quietly run up a token bill. ~8–20k per dig.
 
-- **Plan** — detect the stack (manifests, compose, infra, env).
-- **Generate** — build the system-to-system map *first* (nodes = real systems, edges = real calls, 1–3 critical end-to-end flows), then the data model, then the deep API page.
-- **Debug** — *interpret* the code so the docs reflect real behaviour (grounded in `file:line`). This is **not** a correctness audit; if a real bug turns up while reading, it's flagged to a `⚠ Noticed while reading` list, not fixed.
-- **Deliver** — assemble the hub, validate every page, hand over the path.
+## What it does (briefly)
 
-## Repo layout
+Mechanism: **Plan → Generate → Debug → Deliver**. "Debug" means *interpret* the code so the docs reflect real behaviour (grounded in `file:line`) — **not** a correctness audit; a real bug spotted while reading is flagged to a `⚠ Noticed while reading` list, not fixed. Output lands in `docs/onboarding/` and opens over `file://` (the system map is self-contained — no CDN).
 
-```
-.claude-plugin/
-  plugin.json          # plugin manifest
-  marketplace.json     # makes this repo directly installable
-skills/codeviz/
-  SKILL.md             # the orchestration
-  assets/
-    harness.css        # the component library + canvas/tracer/modal CSS
-    system-map.template.html  # runnable interactive-diagram template
-commands/codeviz.md    # the /codeviz entry point
-examples/demo/         # a rendered demo
-```
+Authoring reference for the diagram's data model, use cases and edge cases: [`skills/codeviz/DATA-SPEC.md`](skills/codeviz/DATA-SPEC.md).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
----
-
-The interactive-diagram engine and component library were reverse-engineered from a hand-built set of system-design pages. Contributions welcome.

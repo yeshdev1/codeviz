@@ -1,12 +1,15 @@
 ---
-description: Generate an interactive system-design onboarding harness for this codebase (system map → data model → deep API)
+description: Generate interactive system-design onboarding for this codebase — scoped & token-estimated (system map · steps · schema · api · theme · full)
 ---
 
-Run the **codeviz** skill on $ARGUMENTS (default: the current repository).
+Run the **codeviz** skill on $ARGUMENTS.
 
-Follow its mechanism — **Plan → Generate → Debug (interpret) → Deliver** — in priority order:
-1. the interactive system-to-system map (most effort, comes first),
-2. the data model,
-3. the API in depth (deepest, comes last).
+`$ARGUMENTS` may start with a **scope** so the user only pays for what they need:
+`map` · `steps` · `schema` · `api` · `theme` · `full` (anything after the scope is the target path; default: current repo).
 
-Output the linked pages to `docs/onboarding/`. "Debug" means *interpret* the code to explain what it does — not audit correctness; if you spot a real bug while reading, flag it to a `⚠ Noticed while reading` list and move on.
+- **No scope** → do the skill's **Scope & estimate** step first: size-scan the repo, show a per-scope token estimate, and let the user pick which to run and drop the rest. Do **not** silently generate everything.
+- **A scope given** → run only that (e.g. `/codeviz map` = just the interactive diagram; `/codeviz full` = everything).
+
+Then follow the mechanism — **Plan → Generate → Debug (interpret) → Deliver** — building the system-to-system map first. Output to `docs/onboarding/`. "Debug" means *interpret* the code to explain what it does — not audit correctness; flag any real bug to a `⚠ Noticed while reading` list and move on.
+
+To go deeper into a specific step afterward, use **/dig-codeviz** (one code level per call, caps at 5).
