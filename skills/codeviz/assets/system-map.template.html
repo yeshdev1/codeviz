@@ -60,11 +60,16 @@
   .narr .nb{display:flex;align-items:center;gap:8px;margin-top:12px}
   .narr .nb button{appearance:none;background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 12px;font:700 12.5px inherit;cursor:pointer}
   .narr .nb .count{margin-left:auto;color:var(--sub);font-size:12px}
-  .narr .scenpick{display:flex;gap:6px;flex-wrap:wrap}
+  .narr .scenpick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  /* scenario chips get their own violet identity so they stand out from the grey controls */
+  .narr .scenpick .pill{color:#d9caff;background:rgba(150,120,255,0.14);border-color:rgba(150,120,255,0.5)}
+  .narr .scenpick .pill:hover{color:#fff;background:rgba(150,120,255,0.26)}
+  .narr .scenpick .pill.on{color:#1b1233;background:#b49bff;border-color:#b49bff;font-weight:700}
   .tip{position:fixed;z-index:30;max-width:280px;background:#101010;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12.5px;color:var(--ink);box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none}
   .tip.hidden{display:none}
   .tip b{color:var(--ink)} .tip .meta{color:var(--sub);font-size:11px;margin:2px 0 5px}
   .tip ol{margin:4px 0 0;padding-left:16px;color:var(--sub)} .tip li{margin:2px 0}
+  .tip .tt{font-size:9.5px;font-weight:800;letter-spacing:.7px;color:var(--sub);margin-bottom:3px}
   .focusbar{position:absolute;left:16px;bottom:18px;z-index:6;background:rgba(22,22,22,0.95);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;display:none;align-items:center;gap:10px}
   .focusbar.show{display:flex}
   .focusbar b{color:var(--accent)}
@@ -118,6 +123,7 @@
 </div>
 
 <div class="narr hidden" id="narr">
+  <div class="scenpick" id="scenpick"></div>
   <div class="nh" id="narrHead"></div>
   <div class="ntext" id="narrText"></div>
   <div class="ndetail" id="narrDetail"></div>
@@ -129,7 +135,6 @@
     <span class="count" id="tCount"></span>
     <button id="tExit" style="margin-left:8px">Exit tour</button>
   </div>
-  <div class="scenpick" id="scenpick" style="margin-top:10px"></div>
 </div>
 
 <div class="tip hidden" id="tip"></div>
@@ -202,8 +207,10 @@
     'queue>pg':['When a job finishes, the worker writes its result back to Postgres.'],
     'queue>ext':['A background worker calls the third-party provider over the network.','If the provider is slow or fails, it retries with backoff \u2014 the user never waits.']
   };
-  // Tour steps are written to TEACH a new grad: text = what happens (one line),
-  // detail = why it works this way / what to remember, terms = inline jargon definitions.
+  // Tour steps TEACH a new grad. Each step describes the REQUEST (text/detail/terms +
+  // payload); the engine then replays the steps in REVERSE as RESPONSES, so an upstream node
+  // only replies AFTER its downstream calls return. reply = the actual content that comes back
+  // over that hop (not just an ack); replyText/replyDetail narrate the return; oneway = no reply.
   // @@ REPLACE: 1-3 critical end-to-end flows for the guided tour. Write to TEACH a newcomer:
   // text = what happens (one line), detail = WHY it works this way, terms = [name, plain definition].
   // from/to must be NODES keys AND an existing EDGES pair (so the comet has a line to travel).
@@ -212,35 +219,44 @@
       {from:'web',to:'api',payload:'GET /things',
         text:'The client asks the API for data \u2014 it never queries the database itself.',
         detail:'Clients only ever talk to the <b>API</b> (one layer down). That keeps database credentials and business rules in one place instead of copied into every app.',
-        terms:[['API','the one service that owns logic and database access']]},
+        terms:[['API','the one service that owns logic and database access']],
+        reply:'200 OK + JSON',
+        replyText:'The client finally gets its data back \u2014 only after the cache/DB hops below returned.',
+        replyDetail:'The client\u2019s response is the <b>last</b> event, not the first: it waited for the whole chain underneath.'},
       {from:'api',to:'redis',payload:'cache lookup',
         text:'The API checks the cache first.',
         detail:'A <b>cache</b> holds recently-used answers in memory. On a \u201chit\u201d the API replies in well under a millisecond and never touches the database \u2014 that\u2019s why this hop is the fastest on the map.',
-        terms:[['cache','fast in-memory store of recent results'],['cache hit','the answer was already cached, so no DB query is needed']]},
+        terms:[['cache','fast in-memory store of recent results'],['cache hit','the answer was already cached, so no DB query is needed']],
+        reply:'miss (not cached)',
+        replyText:'The cache has no copy, so the API must read the source of truth next.'},
       {from:'api',to:'pg',payload:'SELECT \u2026',
         text:'On a cache miss, the API reads the source of truth and refills the cache.',
         detail:'<b>Postgres</b> is the single source of truth. The API runs a <b>parameterised</b> query (values sent separately from the SQL text), which is what makes it safe from SQL injection.',
-        terms:[['source of truth','the one authoritative copy of the data'],['parameterised query','SQL where inputs are bound separately \u2014 injection-safe']]}
+        terms:[['source of truth','the one authoritative copy of the data'],['parameterised query','SQL where inputs are bound separately \u2014 injection-safe']],
+        reply:'rows',
+        replyText:'Postgres returns the matching rows \u2014 the actual data the request was for.',
+        replyDetail:'This is where real content enters the response: the rows. The hops above just carry them upward.'}
     ]},
     { id:'write', label:'A write + background job', steps:[
       {from:'web',to:'api',payload:'POST /orders',
         text:'The client submits a change to the API.',
-        detail:'Writes use the same single entry point as reads. Centralising them lets the API validate every change in one place.'},
+        detail:'Writes use the same single entry point as reads. Centralising them lets the API validate every change in one place.',
+        reply:'201 Created',
+        replyText:'The client gets a 201 once the write has committed below.'},
       {from:'api',to:'pg',payload:'INSERT \u2026 (transaction)',
         text:'The API writes to Postgres inside a transaction.',
         detail:'A <b>transaction</b> means the change either fully happens or not at all \u2014 no half-written data, even if two requests race.',
-        terms:[['transaction','a group of writes that all succeed or all roll back together']]},
-      {from:'api',to:'queue',payload:'enqueue job',
-        text:'Slow follow-up work is pushed onto a queue, not done inline.',
-        detail:'Sending email or charging a card is slow and can fail. The API <b>enqueues</b> a job and returns immediately, so the user isn\u2019t left waiting.',
+        terms:[['transaction','a group of writes that all succeed or all roll back together']],
+        reply:'committed + id',
+        replyText:'Postgres commits the row and returns its id; the write is durable.'},
+      {from:'api',to:'queue',payload:'enqueue job', oneway:true,
+        text:'Slow follow-up work is pushed onto a queue, not done inline \u2014 fire-and-forget.',
+        detail:'Sending email or charging a card is slow and can fail. The API <b>enqueues</b> a job and returns immediately, so the user isn\u2019t left waiting. No reply comes back on this hop.',
         terms:[['queue','a to-do list of jobs for background workers'],['enqueue','add a job to the queue']]},
-      {from:'queue',to:'ext',payload:'call provider (retry)',
-        text:'A worker calls the third party in the background, retrying on failure.',
-        detail:'Because this runs off the request path (dashed arrow = async), a slow or down provider never blocks the user \u2014 the worker just retries with <b>backoff</b>.',
-        terms:[['async','runs in the background; the caller doesn\u2019t wait'],['backoff','waiting longer between each retry']]},
-      {from:'queue',to:'pg',payload:'UPDATE status',
-        text:'When the job finishes, the worker records the result back in Postgres.',
-        detail:'Now the next read (through the cache/DB path) will see the updated state. The loop is closed.'}
+      {from:'queue',to:'ext',payload:'call provider (retry)', oneway:true,
+        text:'Later, a worker calls the third party in the background, retrying on failure.',
+        detail:'Off the request path (dashed = async), a slow or down provider never blocks the user \u2014 the worker just retries with <b>backoff</b>.',
+        terms:[['async','runs in the background; the caller doesn\u2019t wait'],['backoff','waiting longer between each retry']]}
     ]}
   ];
   /* domains = the "continents". Here they line up with tiers, the natural layering. */
@@ -332,7 +348,8 @@
 
   /* ---------- interaction state ---------- */
   var focusId=null, hoverId=null, hoverEdge=-1, hoverDom=null;
-  var trace=null, tour={on:false,scen:null,i:0,play:false,t0:0,dur:6500};
+  var trace=null, tour={on:false,scen:null,list:[],i:0,play:false,t0:0,dur:2600};
+  var tourContentHit=null; // world-space rect of the content label on the active connection
 
   /* degree-of-interest: hop distance from focus over undirected edges */
   var hopCache={};
@@ -413,6 +430,30 @@
       ctx.beginPath(); ctx.moveTo(x-s*Math.cos(ang-0.5),y-s*Math.sin(ang-0.5)); ctx.lineTo(x,y); ctx.lineTo(x-s*Math.cos(ang+0.5),y-s*Math.sin(ang+0.5)); ctx.stroke(); }
     ctx.lineCap='butt'; ctx.globalAlpha=1;
   }
+  // the tour comet: ONE directional hop (request blue / response orange) carrying real content.
+  // The round trip emerges across the playlist (requests descend, responses unwind), not per edge.
+  function drawTourComet(iz){
+    if(!(tour.on && trace)){ tourContentHit=null; return; }
+    var a=center(NODES[trace.from]), b=center(NODES[trace.to]), c=bundle(a.x,a.y,b.x,b.y,0);
+    var resp=trace.dir==='resp', col=resp?'#ff9e3d':'#3b9dff', it=tour.list[tour.i]||{};
+    for(var ti=6;ti>=0;ti--){ var tp=trace.prog-ti*0.05; if(tp<0||tp>1) continue;
+      var p=cpt(a.x,a.y,c,b.x,b.y,tp);
+      ctx.globalAlpha=ti===0?1:Math.max(0,0.5-ti*0.08); ctx.fillStyle=col;
+      ctx.beginPath(); ctx.arc(p.x,p.y, iz*(ti===0?5.2:Math.max(1,3.6-ti*0.35)),0,7); ctx.fill();
+    }
+    // content label at the edge midpoint: the actual payload (request) or response content
+    var e=findEdge(trace.from,trace.to)||findEdge(trace.to,trace.from), lat=e&&typeof e[4]==='number'?e[4]:null;
+    var lp=cpt(a.x,a.y,c,b.x,b.y,0.5);
+    ctx.globalAlpha=1; ctx.font='800 '+(iz*10)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    var lt=(resp?'↩ '+(it.payload||'response'):'→ '+(it.payload||''))+(lat!=null?'   ·   '+lat+'ms':'');
+    var tw=ctx.measureText(lt).width, bx=lp.x-tw/2-iz*7, by=lp.y-iz*9, bw=tw+iz*14, bh=iz*18;
+    ctx.fillStyle='#101010'; rr(bx,by,bw,bh,iz*6); ctx.fill();
+    ctx.lineWidth=iz; ctx.strokeStyle=col; ctx.stroke();
+    ctx.fillStyle=col; ctx.fillText(lt,lp.x,lp.y);
+    ctx.globalAlpha=1;
+    // record the label's world rect so the reader can hover the CONTENT (≠ hovering the line)
+    tourContentHit={x:bx,y:by,w:bw,h:bh,html:contentTipHTML(it,resp,lat)};
+  }
 
   function draw(ts){
     var T=ts||0;
@@ -481,13 +522,15 @@
     if(svc>0){
       EDGES.forEach(function(e,ei){
         var a=center(NODES[e[0]]), b=center(NODES[e[1]]), c=bundle(a.x,a.y,b.x,b.y,0);
-        var lit=edgeLit(e), back=isBack(e), hot=(ei===hoverEdge)||(trace&&e[0]===trace.from&&e[1]===trace.to);
-        ctx.globalAlpha = svc * (hot?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
+        var lit=edgeLit(e), back=isBack(e), hv=(ei===hoverEdge);
+        // during a tour, the hop currently being traversed (either direction) stays bright
+        var onTour = trace && ((e[0]===trace.from&&e[1]===trace.to)||(e[0]===trace.to&&e[1]===trace.from));
+        ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
         var ecol = back?'#f5a623':(e[3]==='thick'?'#ededed':'#3ecf8e');
         // bulk transfers get a faint wide ribbon so "lots of bytes move here" reads instantly
-        if(e[3]==='thick'){ ctx.globalAlpha=svc*(hot?0.5:lit?0.34:0.13); ctx.strokeStyle=ecol; ctx.lineWidth=iz*12; ctx.lineCap='round'; cstroke(a.x,a.y,c,b.x,b.y); ctx.lineCap='butt'; }
-        ctx.globalAlpha = svc * (hot?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
-        ctx.lineWidth = iz*(e[3]==='thick'?2.4:hot?2.6:1.4);
+        if(e[3]==='thick'){ ctx.globalAlpha=svc*(hv||onTour?0.5:lit?0.34:0.13); ctx.strokeStyle=ecol; ctx.lineWidth=iz*12; ctx.lineCap='round'; cstroke(a.x,a.y,c,b.x,b.y); ctx.lineCap='butt'; }
+        ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
+        ctx.lineWidth = iz*(e[3]==='thick'?2.4:hv?2.6:1.4);
         ctx.strokeStyle = ecol;
         ctx.setLineDash(e[3]==='dash'?[iz*5,iz*4]:[]);
         cstroke(a.x,a.y,c,b.x,b.y); ctx.setLineDash([]);
@@ -498,36 +541,20 @@
         ctx.lineTo(b.x-iz*9*Math.cos(ang-0.4), b.y-iz*9*Math.sin(ang-0.4));
         ctx.lineTo(b.x-iz*9*Math.cos(ang+0.4), b.y-iz*9*Math.sin(ang+0.4));
         ctx.closePath(); ctx.fill();
-        // data-in-motion: request OUT (blue) + response BACK (orange) on EVERY edge — only the
-        // edge the tour comet is currently traversing yields, so no trip is ever missed.
-        var owns = trace && e[0]===trace.from && e[1]===trace.to, hv = ei===hoverEdge;
-        if(!owns){
-          var fa=svc*(hv?1 : lit?0.95 : (focusId||trace)?0.26:0.7);
+        // ambient data-in-motion: request OUT (blue) + response BACK (orange) on EVERY edge —
+        // the standing reminder that links carry data both ways (the tour shows the real order).
+        if(!onTour){
+          var fa=svc*(hv?1 : lit?0.9 : (focusId||trace)?0.18:0.7);
           drawTransfer(a,c,b,e,fa,iz,T);
         }
         // latency heat dot — instant colour read of how slow the hop is
-        if(typeof e[4]==='number' && !hot){
+        if(typeof e[4]==='number' && !hv && !onTour){
           var mid=cpt(a.x,a.y,c,b.x,b.y,0.62);
           ctx.globalAlpha=svc*(lit?0.7:0.13); ctx.fillStyle=viridis(latT(e[4]));
           ctx.beginPath(); ctx.arc(mid.x,mid.y,iz*(2.4+latT(e[4])*3.4),0,7); ctx.fill();
         }
-        // comet during tour — a full ROUND TRIP: request OUT (blue, prog 0→1) then
-        // response BACK (orange, prog 1→2). The leg the tour is on drives the narration too.
-        if(owns){
-          var ret=trace.prog>1, lt0=ret?trace.prog-1:trace.prog, ccol=ret?'#ff9e3d':'#3b9dff';
-          for(var ti=6;ti>=0;ti--){ var tp=lt0-ti*0.05; if(tp<0||tp>1) continue;
-            var par=ret?1-tp:tp, p=cpt(a.x,a.y,c,b.x,b.y,par);
-            ctx.globalAlpha=ti===0?1:Math.max(0,0.5-ti*0.08); ctx.fillStyle=ccol;
-            ctx.beginPath(); ctx.arc(p.x,p.y, iz*(ti===0?5:Math.max(1,3.4-ti*0.35)),0,7); ctx.fill();
-          }
-          var lp=cpt(a.x,a.y,c,b.x,b.y,0.5);
-          ctx.globalAlpha=1; ctx.font='700 '+(iz*10)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-          var lt=(ret?'↩ response':'→ '+e[2])+(typeof e[4]==='number'?'  ·  '+e[4]+'ms':'');
-          var tw=ctx.measureText(lt).width;
-          ctx.fillStyle='#101010'; rr(lp.x-tw/2-iz*6,lp.y-iz*9,tw+iz*12,iz*18,iz*5); ctx.fill();
-          ctx.fillStyle=ccol; ctx.fillText(lt,lp.x,lp.y);
-        }
       });
+      drawTourComet(iz);
     }
     ctx.globalAlpha=1;
 
@@ -627,7 +654,17 @@
   }
   function hideTip(){ tip.classList.add('hidden'); }
   function nodeTipHTML(id){ var n=NODES[id]; return '<b>'+n.label+'</b> <span class="meta">'+n.status+' · '+n.sub+'</span><div class="meta" style="margin-top:0">'+n.about+'</div>'+(n.resp?'<ol>'+n.resp.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ol>':''); }
-  function edgeTipHTML(ei){ var e=EDGES[ei],k=e[0]+'>'+e[1],st=EDGE_DETAIL[k],kind=e[3]==='dash'?'async event / stream':(e[3]==='thick'?'bulk data transfer (bypasses the API)':'sync request'); return '<b>'+NODES[e[0]].label+' → '+NODES[e[1]].label+'</b><div class="meta">'+e[2]+' · '+kind+(typeof e[4]==='number'?' · ~'+e[4]+'ms':'')+(isBack(e)?' · calls up a layer':'')+'</div>'+(st?'<ol>'+st.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>':''); }
+  function edgeTipHTML(ei){ var e=EDGES[ei],k=e[0]+'>'+e[1],st=EDGE_DETAIL[k],kind=e[3]==='dash'?'async event / stream':(e[3]==='thick'?'bulk data transfer (bypasses the API)':'sync request'); return '<div class="tt">THE CONNECTION</div><b>'+NODES[e[0]].label+' → '+NODES[e[1]].label+'</b><div class="meta">'+e[2]+' · '+kind+(typeof e[4]==='number'?' · ~'+e[4]+'ms':'')+(isBack(e)?' · calls up a layer':'')+'</div>'+(st?'<ol>'+st.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>':'')+(tour.on?'<div class="meta" style="margin-top:5px;opacity:.75">Hover the moving label to see what’s being sent.</div>':''); }
+  // hovering the CONTENT label (≠ the line): explain the actual payload / response, not the link
+  function contentTipHTML(it,resp,lat){
+    var h='<div class="tt" style="color:'+(resp?'#ff9e3d':'#3b9dff')+'">'+(resp?'WHAT COMES BACK':'WHAT’S BEING SENT')+'</div>';
+    h+='<b>'+(it.payload||(resp?'response':''))+'</b>'+(lat!=null?' <span class="meta">~'+lat+'ms</span>':'');
+    h+='<div style="margin:3px 0 4px">'+(it.text||'')+'</div>';
+    if(it.detail) h+='<div class="meta">'+it.detail+'</div>';
+    if(!resp && it.terms && it.terms.length) h+='<ol>'+it.terms.map(function(t){return '<li><b>'+t[0]+'</b> — '+t[1]+'</li>';}).join('')+'</ol>';
+    h+='<div class="meta" style="margin-top:5px;opacity:.75">Hover the line itself for what this connection does.</div>';
+    return h;
+  }
   function domTipHTML(did){ var d=DOM[did]; return '<b>'+d.label+'</b><div class="meta">'+d.blurb+' · '+d.members.length+' systems</div><div class="meta" style="margin-top:0">'+d.members.map(function(id){return NODES[id].label;}).join(', ')+'</div><div class="meta">Click to zoom in.</div>'; }
 
   /* ---------- pointer events ---------- */
@@ -645,6 +682,10 @@
       cam.x+=dx; cam.y+=dy; camT.x=cam.x; camT.y=cam.y; camT.z=cam.z; last={x:ev.clientX,y:ev.clientY}; hideTip(); return; }
     if(mmHit(ev.clientX-rr0.left, ev.clientY-rr0.top)){ cv.style.cursor='pointer'; hideTip(); return; }
     var r=cv.getBoundingClientRect(), w=screenToWorld(ev.clientX-r.left,ev.clientY-r.top);
+    // CONTENT label takes priority over the line: hovering the moving label explains the payload
+    if(tourContentHit){ var H=tourContentHit, pad=4/cam.z;
+      if(w.x>=H.x-pad && w.x<=H.x+H.w+pad && w.y>=H.y-pad && w.y<=H.y+H.h+pad){
+        hoverId=null; hoverEdge=-1; showTip(H.html,ev); cv.style.cursor='help'; return; } }
     if(curSvc()>0.5){
       var nid=nodeAt(w.x,w.y); hoverId=nid;
       if(nid){ hoverEdge=-1; showTip(nodeTipHTML(nid),ev); cv.style.cursor='pointer'; return; }
@@ -707,27 +748,41 @@
   /* ---------- guided tour (fly-to scrollytelling) ---------- */
   var narr=document.getElementById('narr');
   function buildScenPicker(){ var w=document.getElementById('scenpick'); w.innerHTML=''; SCENARIOS.forEach(function(s,i){ var b=document.createElement('button'); b.className='pill'; b.textContent=s.label; b.dataset.i=i; if(tour.scen&&SCENARIOS[tour.i]&&false){} w.appendChild(b); }); w.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) startTour(+b.dataset.i); }); }
-  function startTour(si){ tour.on=true; tour.scen=SCENARIOS[si]; tour.i=0; tour.play=!reduce; setFocus(null); narr.classList.remove('hidden'); markScen(si); showTourStep(); }
+  function startTour(si){ tour.on=true; tour.scen=SCENARIOS[si]; tour.list=buildPlaylist(SCENARIOS[si]); tour.i=0; tour.play=!reduce; setFocus(null); narr.classList.remove('hidden'); markScen(si); showTourStep(); }
   function markScen(si){ Array.prototype.forEach.call(document.querySelectorAll('#scenpick button'),function(b){ b.classList.toggle('on',+b.dataset.i===si); }); }
+  // A real call is a STACK: requests descend the hops in order, then responses unwind in
+  // REVERSE — an upstream node only replies AFTER its downstream calls return. One-way hops
+  // (fire-and-forget) have no reply, so they're skipped on the way back.
+  function buildPlaylist(scen){
+    var reqs=scen.steps.map(function(s){ return {from:s.from,to:s.to,dir:'req',payload:s.payload,text:s.text,detail:s.detail,terms:s.terms}; });
+    var resps=[];
+    for(var i=scen.steps.length-1;i>=0;i--){ var s=scen.steps[i]; if(s.oneway) continue;
+      resps.push({from:s.to,to:s.from,dir:'resp',payload:s.reply||'response',text:s.replyText||('The response travels back from '+NODES[s.to].label+' to '+NODES[s.from].label+'.'),detail:s.replyDetail||''}); }
+    return reqs.concat(resps);
+  }
   function showTourStep(){
-    var st=tour.scen.steps[tour.i]; trace={from:st.from,to:st.to,prog:0}; tour.t0=0;
-    var a=NODES[st.from],b=NODES[st.to];
+    var it=tour.list[tour.i], N=tour.list.length, resp=it.dir==='resp', col=resp?'#ff9e3d':'#3b9dff';
+    trace={from:it.from,to:it.to,dir:it.dir,prog:0}; tour.t0=0;
+    var a=NODES[it.from],b=NODES[it.to];
     var r={x:Math.min(a.x,b.x)-50,y:Math.min(a.y,b.y)-50}; r.w=Math.max(a.x+a.w,b.x+b.w)-r.x+50; r.h=Math.max(a.y+a.h,b.y+b.h)-r.y+80;
     setTarget(fitRect(r,70,zBase*3.6));
-    var e=findEdge(st.from,st.to), lat=e&&typeof e[4]==='number'?e[4]:null;
-    document.getElementById('narrHead').innerHTML='<span class="step">Step '+(tour.i+1)+' / '+tour.scen.steps.length+'</span><span class="hop"><b>'+NODES[st.from].label+'</b><i>→</i><b>'+NODES[st.to].label+'</b></span>'+(st.payload?'<code>'+st.payload+'</code>':'')+(lat!=null?'<span class="meta" style="margin-left:auto">~'+lat+'ms</span>':'');
-    document.getElementById('narrText').textContent=st.text;
-    document.getElementById('narrDetail').innerHTML = st.detail || '';
-    // jargon chips: define the terms a new grad may not know, inline
+    var e=findEdge(it.from,it.to)||findEdge(it.to,it.from), lat=e&&typeof e[4]==='number'?e[4]:null;
+    document.getElementById('narrHead').innerHTML=
+      '<span class="step" style="color:'+col+'">'+(resp?'◀ RESPONSE':'▶ REQUEST')+' · '+(tour.i+1)+' / '+N+'</span>'+
+      '<span class="hop"><b>'+NODES[it.from].label+'</b><i style="color:'+col+'">'+(resp?'⟵':'⟶')+'</i><b>'+NODES[it.to].label+'</b></span>'+
+      (it.payload?'<code>'+(resp?'returns: ':'')+it.payload+'</code>':'')+
+      (lat!=null?'<span class="meta" style="margin-left:auto">~'+lat+'ms</span>':'');
+    document.getElementById('narrText').textContent=it.text;
+    document.getElementById('narrDetail').innerHTML = it.detail || '';
     var jw=document.getElementById('narrJargon'); jw.innerHTML='';
-    (st.terms||[]).forEach(function(t){ var s=document.createElement('span'); s.className='jt'; s.innerHTML='<b>'+t[0]+'</b> — '+t[1]; jw.appendChild(s); });
-    document.getElementById('tCount').textContent=(tour.i+1)+' / '+tour.scen.steps.length;
+    (it.terms||[]).forEach(function(t){ var s=document.createElement('span'); s.className='jt'; s.innerHTML='<b>'+t[0]+'</b> — '+t[1]; jw.appendChild(s); });
+    document.getElementById('tCount').textContent=(tour.i+1)+' / '+N;
     document.getElementById('tPlay').textContent=tour.play?'❚❚ Pause':'▶ Play';
-    announce('Step '+(tour.i+1)+': '+NODES[st.from].label+' to '+NODES[st.to].label+'. '+st.text+' '+(st.detail?st.detail.replace(/<[^>]+>/g,''):''));
+    announce((resp?'Response ':'Request ')+(tour.i+1)+' of '+N+': '+NODES[it.from].label+' to '+NODES[it.to].label+'. '+it.text);
   }
   function findEdge(f,t){ for(var i=0;i<EDGES.length;i++) if(EDGES[i][0]===f&&EDGES[i][1]===t) return EDGES[i]; return null; }
-  function tourNext(){ if(!tour.on) return; tour.i=(tour.i+1)%tour.scen.steps.length; showTourStep(); }
-  function tourPrev(){ if(!tour.on) return; tour.i=(tour.i-1+tour.scen.steps.length)%tour.scen.steps.length; showTourStep(); }
+  function tourNext(){ if(!tour.on) return; tour.i=(tour.i+1)%tour.list.length; showTourStep(); }
+  function tourPrev(){ if(!tour.on) return; tour.i=(tour.i-1+tour.list.length)%tour.list.length; showTourStep(); }
   function exitTour(){ tour.on=false; tour.play=false; trace=null; narr.classList.add('hidden'); fitAll(); syncLevelPills('continents'); }
   document.getElementById('tourBtn').addEventListener('click',function(){ if(tour.on) exitTour(); else startTour(0); });
   document.getElementById('tNext').addEventListener('click',tourNext);
@@ -735,14 +790,11 @@
   document.getElementById('tExit').addEventListener('click',exitTour);
   document.getElementById('tPlay').addEventListener('click',function(){ tour.play=!tour.play; this.textContent=tour.play?'❚❚ Pause':'▶ Play'; });
 
-  /* tour comet timer */
+  /* tour comet timer — one directional hop per playlist item (prog 0→1) */
   function tick(ts){
     if(tour.on && trace){
-      // prog 0→1 = request out, 1→2 = response back (full round trip per step)
-      if(reduce){ trace.prog=0.5; }
-      else if(tour.play){ if(!tour.t0) tour.t0=ts; var p=(ts-tour.t0)/tour.dur*2; trace.prog=Math.min(2,p);
-        if(p>=1 && !trace._rang){ trace._rang=true; announce('Response travelling back from '+NODES[trace.to].label+' to '+NODES[trace.from].label+'.'); }
-        if(p>=2){ tour.t0=ts; tourNext(); } }
+      if(reduce){ trace.prog=0.6; }
+      else if(tour.play){ if(!tour.t0) tour.t0=ts; var p=(ts-tour.t0)/tour.dur; trace.prog=Math.min(1,p); if(p>=1){ tour.t0=ts; tourNext(); } }
     }
     requestAnimationFrame(tick);
   }
@@ -774,6 +826,9 @@
   window.__atlas={ get z(){return cam.z;}, get zBase(){return zBase;}, get svc(){return curSvc();},
     get focus(){return focusId;}, setFocus:setFocus, goLevel:goLevel, fitAll:fitAll,
     startTour:startTour, exitTour:exitTour, get tour(){return {on:tour.on,i:tour.i,scen:tour.scen&&tour.scen.id};},
+    next:tourNext, pause:function(){tour.play=false;},
+    contentScreen:function(){ if(!tourContentHit)return null; return worldToScreen(tourContentHit.x+tourContentHit.w/2, tourContentHit.y+tourContentHit.h/2); },
+    lineScreen:function(){ if(!trace)return null; var a=center(NODES[trace.from]),b=center(NODES[trace.to]),c=bundle(a.x,a.y,b.x,b.y,0),p=cpt(a.x,a.y,c,b.x,b.y,0.8); return worldToScreen(p.x,p.y); },
     NODES:NODES, EDGES:EDGES, DOMAINS:DOMAINS, snap:function(){ camT={z:cam.z,x:cam.x,y:cam.y}; } };
 })();
 </script>

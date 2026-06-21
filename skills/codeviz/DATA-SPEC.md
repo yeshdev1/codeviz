@@ -7,7 +7,7 @@ comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[20]{object,field,req,shape,note}:
+fields[24]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
@@ -25,9 +25,13 @@ fields[20]{object,field,req,shape,note}:
   SCENARIOS,steps,yes,step[],ordered hops (see step fields)
   step,from/to,yes,nodeId,MUST also be an EDGES pair
   step,payload,no,string,wire payload chip (e.g. GET /x)
-  step,text,yes,string,what happens (one line)
+  step,text,yes,string,what the REQUEST does (one line)
   step,detail,no,html,why it works this way; <b> ok
   step,terms,no,[name;def][],jargon chips for new grads
+  step,reply,no,string,actual content returned over this hop (not an ack)
+  step,replyText,no,string,narration for the return leg
+  step,replyDetail,no,html,why the response is what it is
+  step,oneway,no,bool,fire-and-forget; no response leg in the tour
 ```
 
 ## Use cases — how to model common architectures
@@ -47,7 +51,7 @@ usecases[10]{case,model}:
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[20]{case,handling}:
+edgecases[24]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -68,6 +72,10 @@ edgecases[20]{case,handling}:
   no scenarios,the tour is empty; always provide ≥1 flow
   reduced-motion user,flow → static chevrons; comet freezes; narration must carry the meaning
   offline / file://,fully supported; no CDN or framework is loaded
+  tour response order,requests descend in step order; responses unwind in REVERSE — an upstream node replies only after its downstream returns
+  fire-and-forget hop,set oneway:true (e.g. email/queue/webhook); shows as a request with no return leg
+  response with no content,omit reply (or set a short ack); the return leg still animates with a default label
+  dual hover on a hop,hovering the line shows EDGE_DETAIL (the connection); hovering the tour content label shows the payload/response — two separate tooltips
 ```
 
 ## Invariants (validate before delivering)
