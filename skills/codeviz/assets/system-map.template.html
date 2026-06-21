@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>@@PROJECT@@ — System map</title><link rel="stylesheet" href="harness.css"/>
+<title>@@PROJECT@@ — System map</title><link rel="stylesheet" href="harness.css"/><link rel="stylesheet" href="theme.css"/>
 <script src="https://unpkg.com/lucide@latest"></script></head>
 <body>
 <div class="topbar"><a class="mark" href="index.html">@@PROJECT@@ Docs</a><span class="crumb">Onboarding → <strong>System map</strong></span></div>
@@ -8,7 +8,19 @@
   <div class="kicker">Start here</div>
   <h1>How the system fits together</h1>
   <p class="lede">Every box is a real system in the codebase; every arrow is a real call. <strong>Click any box</strong> for what it is and why it's there. Pick a scenario to auto-play a real request hop-by-hop. Arrow style: <strong>solid</strong> = sync request · <strong>dashed</strong> = async event · <strong>thick</strong> = bulk bytes that bypass the API.</p>
-  <div class="sysdiag"><canvas id="archCanvas" role="img" aria-label="System-to-system architecture"></canvas></div>
+  <div class="dlegend">
+    <span><i class="ln"></i> sync</span><span><i class="ln dash"></i> async</span><span><i class="ln thick"></i> bulk (bypasses API)</span>
+    <span><i class="kdot built"></i> built</span><span><i class="kdot partial"></i> partial</span><span><i class="kdot planned"></i> planned</span>
+    <span class="latkey"><i class="latramp"></i> latency <em>1ms</em><em>50</em><em>500+</em></span>
+  </div>
+  <div class="ixbar">
+    <div class="ixsearch"><i data-lucide="search"></i><input id="ixSearch" type="text" placeholder="Filter systems…" aria-label="Filter systems" autocomplete="off"/><button id="ixClear" hidden aria-label="Clear filter">&times;</button></div>
+    <span class="ixcount" id="ixCount" hidden></span>
+    <span class="ixfocus" id="ixFocus" hidden><span class="ixfl">Impact of</span> <b id="ixFocusName"></b><span class="ixdir" id="ixDir"><button data-dir="up" type="button">&uarr; upstream</button><button data-dir="both" type="button" class="on">&updownarrow; both</button><button data-dir="down" type="button">&darr; downstream</button></span><button id="ixSim" class="ixclearbtn ixsim" type="button">⚡ simulate failure</button><button id="ixFocusClear" class="ixclearbtn" type="button">show full system</button></span><span class="ixarrange"><button id="ixArrange" class="ixclearbtn" type="button" aria-pressed="false">&#10021; Arrange</button><button id="ixReset" class="ixclearbtn" type="button" hidden>Reset</button><button id="ixExport" class="ixclearbtn" type="button" hidden>Export x,y</button><span id="ixArrangeNote" class="ixcount" hidden></span></span>
+  </div>
+  <div class="sysdiag"><canvas id="archCanvas" tabindex="0" role="img" aria-label="System architecture diagram. Use arrow keys to move between systems, Enter for details."></canvas><div id="edgeTip" class="edgetip" hidden></div></div>
+  <div id="ixLive" aria-live="polite" class="visually-hidden"></div>
+  <div id="ixSimBanner" class="simbanner" hidden><b>⚠ Modeled from static structure — not observed.</b> Red nodes are everything structurally <em>downstream-reachable</em> from the failed system (per call sites in the code). Real behaviour depends on retries, timeouts, circuit breakers, caches and queues <u>not shown here</u> — verify before trusting.</div>
   <div class="tracer">
     <div class="tracer-head">
       <span class="tracer-label"><i data-lucide="play-circle" style="width:15px;height:15px;vertical-align:-3px"></i> Walk a real request through the stack:</span>
@@ -24,10 +36,6 @@
       <span class="tracer-count" id="scenCount"></span>
     </div>
     <div class="tracer-edges" id="scenEdges"></div>
-  </div>
-  <div class="dlegend">
-    <span><i class="ln"></i> sync</span><span><i class="ln dash"></i> async</span><span><i class="ln thick"></i> bulk (bypasses API)</span>
-    <span><i class="kdot built"></i> built</span><span><i class="kdot partial"></i> partial</span><span><i class="kdot planned"></i> planned</span>
   </div>
   <div id="compDetail" class="compdetail"><p class="hint">Tap any box in the diagram above for its capabilities, role, why it was chosen, and links to learn the basics.</p></div>
   <div class="related"><h2>Next</h2><ul class="pathlist"><li><a href="schema.html">Data model &rarr;</a></li><li><a href="api.html">API surface &rarr;</a></li></ul></div>
@@ -81,14 +89,41 @@
 
     // @@ REPLACE: who calls whom. style: 'solid' = sync request · 'dash' = async event
     // (webhook / queue / pub-sub) · 'thick' = bulk bytes (media/file) that bypass the API.
+    // Optional 5th element = latency in ms (ILLUSTRATIVE — typical order of magnitude, not
+    // measured; use real p50s if the team has them): ['from','to','label','style', 12].
     var EDGES = [
-      ['web', 'api', 'REST', 'solid'],
-      ['api', 'pg', 'SQL', 'solid'],
-      ['api', 'redis', 'cache + enqueue', 'solid'],
-      ['api', 'queue', 'enqueue job', 'solid'],
-      ['queue', 'pg', 'writes', 'solid'],
-      ['queue', 'ext', 'webhook / notify', 'dash']
+      ['web', 'api', 'REST', 'solid', 30],
+      ['api', 'pg', 'SQL', 'solid', 4],
+      ['api', 'redis', 'cache + enqueue', 'solid', 1],
+      ['api', 'queue', 'enqueue job', 'solid', 2],
+      ['queue', 'pg', 'writes', 'solid', 5],
+      ['queue', 'ext', 'webhook / notify', 'dash', 180]
     ];
+
+    // @@ REPLACE: plain-English, step-by-step of what each connection does — shown when the
+    // reader HOVERS the line. Key = 'from>to' (must match an EDGES pair). One short sentence
+    // per step; explain the *purpose* of the call, in order. Cover the important edges.
+    var EDGE_DETAIL = {
+      'web>api': { steps: [
+        'The browser or app sends an HTTPS request to the API for the data it needs.',
+        'It attaches the user’s session token so the API knows who is asking.',
+        'The API validates the request, does the work, and returns JSON the client renders.'
+      ] },
+      'api>pg': { steps: [
+        'The API borrows a connection from its Postgres pool.',
+        'It runs a parameterised SQL query inside a transaction (safe from injection).',
+        'Postgres returns the rows; the API shapes them into the response.'
+      ] },
+      'api>redis': { steps: [
+        'Before hitting the database, the API checks Redis for a cached copy.',
+        'On a hit it returns instantly; on a miss it reads Postgres and re-fills the cache.'
+      ] },
+      'queue>ext': { steps: [
+        'A background worker picks the job off the queue, off the user’s request path.',
+        'It calls the third-party provider over the network.',
+        'If the provider is slow or fails, it retries with backoff — the user never waits.'
+      ] }
+    };
 
     // @@ REPLACE: per-node deep-dive shown in the click-through modal. tier/cap/why/alts/learn.
     var DETAIL = {
@@ -104,9 +139,97 @@
         learn: [['PostgreSQL', 'https://www.postgresql.org/docs/']] }
     };
 
-    var COL = { ink: '#051f38', cream: '#fff3e9', card: '#fffaf3', wine: '#662521', amber: '#feb146', tan: '#d19254', slate: '#405770', green: '#2e7d32', border: 'rgba(5,31,56,0.16)' };
+    function cvar(n, fb) { try { var v = getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return v || fb; } catch (e) { return fb; } }
+    var COL = { ink: cvar('--cv-ink', '#051f38'), cream: cvar('--cv-cream', '#fff3e9'), card: cvar('--cv-card', '#fffaf3'), wine: cvar('--cv-edge', '#662521'), amber: cvar('--cv-comet', '#feb146'), tan: cvar('--cv-faint', '#d19254'), slate: cvar('--cv-sub', '#405770'), green: cvar('--cv-ok', '#2e7d32'), border: cvar('--cv-line', 'rgba(5,31,56,0.16)') };
+    // ---- latency on edges (optional 5th EDGES element, in ms — illustrative) ----
+    var STEP_DEFAULT = 3400, curStepMs = STEP_DEFAULT;
+    function edgeLat(e) { return typeof e[4] === 'number' ? e[4] : null; }
+    function findEdge(from, to) { for (var i = 0; i < EDGES.length; i++) { if (EDGES[i][0] === from && EDGES[i][1] === to) return EDGES[i]; } return null; }
+    var LAT_VALS = EDGES.map(edgeLat).filter(function (v) { return v != null; });
+    var LAT_MIN = LAT_VALS.length ? Math.min.apply(null, LAT_VALS) : 1;
+    var LAT_MAX = LAT_VALS.length ? Math.max.apply(null, LAT_VALS) : 1;
+    function latT(ms) { if (LAT_MAX <= LAT_MIN) return 0.5; var t = (Math.log(Math.max(1, ms)) - Math.log(LAT_MIN)) / (Math.log(LAT_MAX) - Math.log(LAT_MIN)); return Math.max(0, Math.min(1, t)); }
+    // CVD-safe sequential ramp (viridis) — research #6: never encode by hue alone; the heat
+    // dot ALSO grows with latency (redundant size channel) and the ms number is shown on hover.
+    var VIRIDIS = ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'];
+    function lerpHex(a, b, t) {
+      var pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+      var r = Math.round((pa >> 16) + (((pb >> 16) - (pa >> 16)) * t));
+      var g = Math.round(((pa >> 8) & 255) + ((((pb >> 8) & 255) - ((pa >> 8) & 255)) * t));
+      var bl = Math.round((pa & 255) + (((pb & 255) - (pa & 255)) * t));
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    }
+    function viridis(t) { t = Math.max(0, Math.min(1, t)); var i = t * (VIRIDIS.length - 1), k = Math.floor(i); if (k >= VIRIDIS.length - 1) return VIRIDIS[VIRIDIS.length - 1]; return lerpHex(VIRIDIS[k], VIRIDIS[k + 1], i - k); }
+    function latColor(ms) { return viridis(latT(ms)); }
+    function latRadius(ms) { return 2.3 + latT(ms) * 3.4; } // redundant size channel (slow = bigger)
+    function latStepMs(ms) { return ms == null ? STEP_DEFAULT : Math.round(1500 + latT(ms) * 2700); } // slower comet on slower links
     var dpr = Math.max(1, window.devicePixelRatio || 1);
     var scale = 1, sel = null, hover = null, tnow = 0, trace = null;
+    // ---- interaction state: search (#1) + focus/impact (#2) ----
+    // Research guards: dim NEVER below a floor (hiding dependency edges destroys onboarding
+    // value); keep each match's 1-hop neighbourhood lit; focus is cue-based (colour/opacity),
+    // NEVER geometric distortion; layout stays deterministic.
+    // ---- reduced-motion (#6): honour the OS setting — no autoplay, comet frozen to a marker ----
+    var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    (function () { var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)'); if (mq && mq.addEventListener) mq.addEventListener('change', function (e) { reduceMotion = e.matches; }); }());
+    var kb = null; // keyboard-focused node id (#6 keyboard nav)
+    var dragNode = null, dragDX = 0, ORIG = {}; // #3 direct manipulation (arrange mode)
+    var IX = { query: '', focus: null, focusDir: 'both', _fs: null, down: null, _ds: null, arrange: false };
+    function nodeHay(id) {
+      var n = NODES[id], parts = [n.label, n.sub || '', n.about || '', (n.resp || []).join(' ')];
+      EDGES.forEach(function (e) { if (e[0] === id || e[1] === id) parts.push(e[2]); });
+      return parts.join(' ').toLowerCase();
+    }
+    function matchNode(id) { return !IX.query || nodeHay(id).indexOf(IX.query) !== -1; }
+    function neighborOfMatch(id) { return EDGES.some(function (e) { return (e[0] === id && matchNode(e[1])) || (e[1] === id && matchNode(e[0])); }); }
+    function matchCount() { var c = 0; Object.keys(NODES).forEach(function (id) { if (matchNode(id)) c++; }); return c; }
+    function focusSet() {
+      if (!IX.focus) return null;
+      if (IX._fs) return IX._fs;
+      var set = {}; set[IX.focus] = true;
+      function walk(down) {
+        var stack = [IX.focus];
+        while (stack.length) {
+          var cur = stack.pop();
+          EDGES.forEach(function (e) {
+            var nxt = down ? (e[0] === cur ? e[1] : null) : (e[1] === cur ? e[0] : null);
+            if (nxt && !set[nxt]) { set[nxt] = true; stack.push(nxt); }
+          });
+        }
+      }
+      if (IX.focusDir === 'down' || IX.focusDir === 'both') walk(true);
+      if (IX.focusDir === 'up' || IX.focusDir === 'both') walk(false);
+      IX._fs = set; return set;
+    }
+    // #4 brushing: broadcast the focused system so schema.html / api.html can highlight it
+    function broadcastNode(id) { try { localStorage.setItem('codeviz:node', id); } catch (e) {} try { if (history.replaceState) history.replaceState(null, '', '#node=' + id); } catch (e) {} }
+    function setFocus(id, dir) { IX.focus = id; if (dir) IX.focusDir = dir; IX._fs = null; if (IX.down && IX.down !== id) clearDown(); broadcastNode(id); updateIXBar(); }
+    function clearFocus() { IX.focus = null; IX._fs = null; clearDown(); updateIXBar(); }
+    // #5 failure blast-radius: strictly DOWNSTREAM-reachable from the failed node. This is
+    // reachability from call sites, NOT a behaviour simulation (research: avoid false
+    // feedforward + automation bias) — rendered low-fidelity and badged "modeled, not observed".
+    function downSet() {
+      if (!IX.down) return {};
+      if (IX._ds) return IX._ds;
+      var set = {}, stack = [IX.down];
+      while (stack.length) { var cur = stack.pop(); EDGES.forEach(function (e) { if (e[0] === cur && !set[e[1]]) { set[e[1]] = true; stack.push(e[1]); } }); }
+      delete set[IX.down]; IX._ds = set; return set;
+    }
+    function setDown(id) { IX.down = id; IX._ds = null; updateIXBar(); }
+    function clearDown() { IX.down = null; IX._ds = null; updateIXBar(); }
+    // opacity resolver — filter-floor 0.30, focus-dim 0.40 (research: dim, don't hide)
+    function nodeAlpha(id) {
+      if (trace) return nodeActive(id) ? 1 : 0.18;
+      if (IX.focus) return focusSet()[id] ? 1 : 0.40;
+      if (IX.query) return matchNode(id) ? 1 : (neighborOfMatch(id) ? 0.62 : 0.30);
+      return nodeActive(id) ? 1 : 0.18;
+    }
+    function edgeFactor(e) {
+      if (trace) return 1;
+      if (IX.focus) { var fs = focusSet(); return (fs[e[0]] && fs[e[1]]) ? 1 : 0.12; }
+      if (IX.query) return (matchNode(e[0]) || matchNode(e[1])) ? 1 : 0.18;
+      return 1;
+    }
     function statusColor(s) { return s === 'built' ? COL.green : s === 'partial' ? COL.amber : COL.tan; }
     function center(n) { return { x: n.x + n.w / 2, y: n.y + n.h / 2 }; }
     function anchor(n, tx, ty) {
@@ -139,27 +262,28 @@
       tnow = ts || 0;
       // ---- step timer drives the automatic data-flow ----
       var sp = 0, pktProg;
-      if (scen && trace && autoplaying) {
+      if (scen && trace && autoplaying && !reduceMotion) {
         if (stepStart < 0) stepStart = tnow;
-        sp = (tnow - stepStart) / STEP_MS; if (sp > 1) sp = 1;
+        sp = (tnow - stepStart) / curStepMs; if (sp > 1) sp = 1;
         if (scenBar) scenBar.style.width = (sp * 100).toFixed(1) + '%';
         pktProg = sp;
       } else {
-        pktProg = (tnow / 1500) % 1; // idle / hover: packet loops gently
+        pktProg = reduceMotion ? 0.62 : (tnow / 1500) % 1; // reduced-motion: static marker, no loop
       }
       var s = scale * dpr;
       ctx.setTransform(s, 0, 0, s, 0, 0);
       ctx.clearRect(0, 0, W, H);
       // edges
-      EDGES.forEach(function (e) {
+      EDGES.forEach(function (e, ei) {
         var a = NODES[e[0]], b = NODES[e[1]], ca = center(a), cb = center(b);
         var pa = anchor(a, cb.x, cb.y), pb = anchor(b, ca.x, ca.y);
+        var lat = edgeLat(e);
         var hot, dim;
         if (trace) { hot = (e[0] === trace.from && e[1] === trace.to); dim = !hot; }
-        else if (sel) { hot = edgeOfSel(e); dim = !edgeOfSel(e); }
-        else { hot = !!(hover && (e[0] === hover || e[1] === hover)); dim = false; }
+        else if (sel) { hot = edgeOfSel(e) || ei === hoverEdge; dim = !hot; }
+        else { hot = (!!(hover && (e[0] === hover || e[1] === hover))) || ei === hoverEdge; dim = false; }
         ctx.save();
-        ctx.globalAlpha = dim ? 0.08 : (hot ? 1 : 0.32);
+        ctx.globalAlpha = (dim ? 0.08 : (hot ? 1 : 0.32)) * edgeFactor(e);
         ctx.strokeStyle = e[3] === 'thick' ? COL.ink : COL.wine;
         ctx.lineWidth = e[3] === 'thick' ? 3.4 : 1.6;
         ctx.setLineDash(e[3] === 'dash' ? [5, 4] : []);
@@ -172,6 +296,12 @@
         ctx.lineTo(pb.x - 9 * Math.cos(ang - 0.4), pb.y - 9 * Math.sin(ang - 0.4));
         ctx.lineTo(pb.x - 9 * Math.cos(ang + 0.4), pb.y - 9 * Math.sin(ang + 0.4));
         ctx.closePath(); ctx.fill();
+        // latency heat dot on the edge midpoint (colour = how slow the hop is)
+        if (lat != null && !hot) {
+          ctx.globalAlpha = dim ? 0.12 : 0.6;
+          ctx.fillStyle = latColor(lat);
+          ctx.beginPath(); ctx.arc((pa.x + pb.x) / 2, (pa.y + pb.y) / 2, latRadius(lat), 0, 7); ctx.fill();
+        }
         if (hot) {
           // comet: a bright head plus a fading trail, travelling pa → pb
           for (var ti = 5; ti >= 0; ti--) {
@@ -185,9 +315,11 @@
           var mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
           ctx.font = '700 9.5px -apple-system, BlinkMacSystemFont, sans-serif';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          var tw = ctx.measureText(e[2]).width;
+          var ltxt = e[2] + (lat != null ? '    ' + lat + 'ms' : '');
+          var tw = ctx.measureText(ltxt).width;
           ctx.fillStyle = COL.cream; roundRect(mx - tw / 2 - 5, my - 8, tw + 10, 16, 5); ctx.fill();
-          ctx.fillStyle = COL.ink; ctx.fillText(e[2], mx, my);
+          ctx.fillStyle = COL.ink; ctx.fillText(ltxt, mx, my);
+          if (lat != null) { ctx.fillStyle = latColor(lat); ctx.beginPath(); ctx.arc(mx - tw / 2 - 11, my, latRadius(lat), 0, 7); ctx.fill(); }
         }
         ctx.restore();
       });
@@ -197,7 +329,7 @@
         var emph = trace ? (id === trace.to) : (id === sel);
         var ring = trace ? (id === trace.from || id === trace.to) : (id === sel || isHover);
         ctx.save();
-        ctx.globalAlpha = active ? 1 : 0.18;
+        ctx.globalAlpha = nodeAlpha(id);
         roundRect(n.x, n.y, n.w, n.h, 11);
         ctx.fillStyle = emph ? COL.ink : COL.card; ctx.fill();
         ctx.lineWidth = ring ? 2.4 : 1.2;
@@ -222,7 +354,21 @@
         }
         ctx.restore();
       });
-      if (autoplaying && scen && trace && sp >= 1) advance();
+      // #5 failure blast-radius overlay (schematic, low-fidelity — deliberately NOT the success comet)
+      if (IX.down) {
+        var ds = downSet(); ctx.save();
+        Object.keys(NODES).forEach(function (id) {
+          if (!ds[id] && id !== IX.down) return; var dn = NODES[id];
+          ctx.globalAlpha = 0.85; ctx.fillStyle = id === IX.down ? 'rgba(192,57,43,0.34)' : 'rgba(150,40,40,0.20)';
+          roundRect(dn.x, dn.y, dn.w, dn.h, 11); ctx.fill();
+          ctx.setLineDash([3, 3]); ctx.lineWidth = id === IX.down ? 2.4 : 1.6; ctx.strokeStyle = '#c0392b';
+          ctx.stroke(); ctx.setLineDash([]);
+        });
+        ctx.restore();
+      }
+      // keyboard focus ring (#6) — drawn on top of the nodes
+      if (kb && NODES[kb]) { var kn = NODES[kb]; ctx.save(); ctx.globalAlpha = 1; ctx.setLineDash([4, 3]); ctx.lineWidth = 2.2; ctx.strokeStyle = COL.wine; roundRect(kn.x - 4, kn.y - 4, kn.w + 8, kn.h + 8, 13); ctx.stroke(); ctx.setLineDash([]); ctx.restore(); }
+      if (autoplaying && scen && trace && sp >= 1 && !reduceMotion) advance();
       requestAnimationFrame(draw);
     }
     function hit(mx, my) {
@@ -237,14 +383,80 @@
       var r = canvas.getBoundingClientRect(), pt = ev.touches ? ev.touches[0] : ev;
       return { x: pt.clientX - r.left, y: pt.clientY - r.top };
     }
+    // ---- hovering a CONNECTION: hit-test edges + explain what they do, step by step ----
+    var hoverEdge = -1, edgeTip = document.getElementById('edgeTip');
+    function distToSeg(px, py, ax, ay, bx, by) {
+      var dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      if (L2 === 0) return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+      var t = ((px - ax) * dx + (py - ay) * dy) / L2; t = Math.max(0, Math.min(1, t));
+      var qx = ax + t * dx, qy = ay + t * dy;
+      return Math.sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
+    }
+    function hitEdge(lx, ly) {
+      var best = -1, bestD = 7;
+      for (var i = 0; i < EDGES.length; i++) {
+        var e = EDGES[i], a = NODES[e[0]], b = NODES[e[1]], ca = center(a), cb = center(b);
+        var pa = anchor(a, cb.x, cb.y), pb = anchor(b, ca.x, ca.y);
+        var d = distToSeg(lx, ly, pa.x, pa.y, pb.x, pb.y);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      return best;
+    }
+    function hideTip() { if (edgeTip) edgeTip.hidden = true; }
+    function showTip(ei, ev) {
+      if (!edgeTip) return;
+      var e = EDGES[ei], det = EDGE_DETAIL[e[0] + '>' + e[1]] || {};
+      var lat = edgeLat(e), kind = e[3] === 'dash' ? 'async' : (e[3] === 'thick' ? 'bulk transfer' : 'sync request');
+      var html = '<div class="et-head"><b>' + NODES[e[0]].label + '</b><span class="et-arrow">&rarr;</span><b>' + NODES[e[1]].label + '</b></div>';
+      html += '<div class="et-meta">' + e[2] + ' &middot; ' + kind + (lat != null ? ' &middot; ~' + lat + ' ms' : '') + '</div>';
+      if (det.steps && det.steps.length) html += '<ol class="et-steps">' + det.steps.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>';
+      else html += '<div class="et-empty">What this connection does isn’t documented yet.</div>';
+      edgeTip.innerHTML = html;
+      edgeTip.hidden = false;
+      var pad = 16, tw = edgeTip.offsetWidth, th = edgeTip.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+      var x = ev.clientX + pad, y = ev.clientY + pad;
+      if (x + tw > vw - 8) x = ev.clientX - tw - pad;
+      if (y + th > vh - 8) y = vh - th - 8;
+      edgeTip.style.left = Math.max(8, x) + 'px'; edgeTip.style.top = Math.max(8, y) + 'px';
+    }
     canvas.addEventListener('mousemove', function (ev) {
+      if (dragNode) { canvas.style.cursor = 'grabbing'; return; }
       var p = relPos(ev), h = hit(p.x, p.y);
-      hover = h; canvas.style.cursor = h ? 'pointer' : 'default';
+      hover = h;
+      if (h) { hoverEdge = -1; hideTip(); canvas.style.cursor = 'pointer'; return; }
+      var ei = hitEdge(p.x / scale, p.y / scale);
+      hoverEdge = ei;
+      if (ei >= 0) { showTip(ei, ev); canvas.style.cursor = 'help'; }
+      else { hideTip(); canvas.style.cursor = 'default'; }
     });
-    canvas.addEventListener('mouseleave', function () { hover = null; });
-    function pick(ev) { var p = relPos(ev), h = hit(p.x, p.y); if (h) { exitScenario(); sel = h; renderDetail(h); openModal(h); } else { sel = null; renderDetail(null); } }
+    canvas.addEventListener('mouseleave', function () { hover = null; hoverEdge = -1; hideTip(); });
+    function pick(ev) { if (IX.arrange) return; var p = relPos(ev), h = hit(p.x, p.y); if (h) { exitScenario(); sel = h; setFocus(h, 'both'); renderDetail(h); openModal(h); } else { sel = null; renderDetail(null); } }
     canvas.addEventListener('click', pick);
     canvas.addEventListener('touchstart', function (ev) { ev.preventDefault(); pick(ev); }, { passive: false });
+    // ---- keyboard navigation (#6): arrows walk the graph spatially, Enter opens ----
+    var ixLive = document.getElementById('ixLive');
+    function nodeCenter(id) { var n = NODES[id]; return { x: n.x + n.w / 2, y: n.y + n.h / 2 }; }
+    function announce(id) { var n = NODES[id]; if (ixLive) ixLive.textContent = n.label + (n.sub ? ', ' + n.sub : '') + '. ' + (n.about || '') + ' Press Enter for details.'; }
+    function kbMove(dx, dy) {
+      if (!kb) { kb = Object.keys(NODES)[0]; announce(kb); return; }
+      var c = nodeCenter(kb), best = null, bestScore = Infinity;
+      Object.keys(NODES).forEach(function (id) {
+        if (id === kb) return; var t = nodeCenter(id), vx = t.x - c.x, vy = t.y - c.y;
+        if (dx > 0 && vx <= 4) return; if (dx < 0 && vx >= -4) return; if (dy > 0 && vy <= 4) return; if (dy < 0 && vy >= -4) return;
+        var along = dx ? Math.abs(vx) : Math.abs(vy), perp = dx ? Math.abs(vy) : Math.abs(vx), score = along + perp * 2.2;
+        if (score < bestScore) { bestScore = score; best = id; }
+      });
+      if (best) { kb = best; announce(kb); }
+    }
+    canvas.addEventListener('focus', function () { if (!kb) kb = Object.keys(NODES)[0]; announce(kb); });
+    canvas.addEventListener('keydown', function (ev) {
+      var k = ev.key;
+      if (k === 'ArrowLeft') { kbMove(-1, 0); ev.preventDefault(); }
+      else if (k === 'ArrowRight') { kbMove(1, 0); ev.preventDefault(); }
+      else if (k === 'ArrowUp') { kbMove(0, -1); ev.preventDefault(); }
+      else if (k === 'ArrowDown') { kbMove(0, 1); ev.preventDefault(); }
+      else if (k === 'Enter' || k === ' ') { if (kb) { exitScenario(); sel = kb; setFocus(kb, 'both'); renderDetail(kb); openModal(kb); announce(kb); } ev.preventDefault(); }
+    });
 
     var panel = document.getElementById('compDetail');
     function statusPill(s) {
@@ -295,7 +507,72 @@
     }
     function closeModal() { modal.hidden = true; document.body.style.overflow = ''; }
     modal.addEventListener('click', function (e) { if (e.target.hasAttribute('data-close')) closeModal(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!modal.hidden) closeModal();
+      else if (IX.focus) clearFocus();
+      else if (IX.query) clearSearch();
+    });
+    // ---- toolbar wiring: search (#1) + focus/impact (#2) ----
+    var ixSearch = document.getElementById('ixSearch'), ixClear = document.getElementById('ixClear'),
+        ixCount = document.getElementById('ixCount'), ixFocusBar = document.getElementById('ixFocus'),
+        ixFocusName = document.getElementById('ixFocusName'), ixDir = document.getElementById('ixDir');
+    function updateIXBar() {
+      if (ixFocusBar) {
+        if (IX.focus) { ixFocusBar.hidden = false; ixFocusName.textContent = NODES[IX.focus].label;
+          Array.prototype.forEach.call(ixDir.children, function (b) { b.classList.toggle('on', b.dataset.dir === IX.focusDir); }); }
+        else ixFocusBar.hidden = true;
+      }
+      if (ixCount) {
+        var M = Object.keys(NODES).length;
+        if (IX.query) { var n = matchCount(); ixCount.textContent = n === 0 ? ('no systems match “' + IX.query + '”') : ('showing ' + n + ' of ' + M + ' systems'); ixCount.hidden = false; }
+        else ixCount.hidden = true;
+      }
+      if (ixClear) ixClear.hidden = !IX.query;
+      var simBtn = document.getElementById('ixSim'), simBanner = document.getElementById('ixSimBanner');
+      if (simBtn) { simBtn.classList.toggle('on', !!IX.down); simBtn.textContent = IX.down ? '⚡ failure ON' : '⚡ simulate failure'; }
+      if (simBanner) simBanner.hidden = !IX.down;
+    }
+    function clearSearch() { if (ixSearch) ixSearch.value = ''; IX.query = ''; updateIXBar(); }
+    if (ixSearch) ixSearch.addEventListener('input', function () { IX.query = ixSearch.value.trim().toLowerCase(); updateIXBar(); });
+    if (ixClear) ixClear.addEventListener('click', clearSearch);
+    if (ixDir) ixDir.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setFocus(IX.focus, b.dataset.dir); });
+    var ixFocusClear = document.getElementById('ixFocusClear');
+    if (ixFocusClear) ixFocusClear.addEventListener('click', clearFocus);
+    var ixSim = document.getElementById('ixSim');
+    if (ixSim) ixSim.addEventListener('click', function () { if (IX.down) clearDown(); else if (IX.focus) setDown(IX.focus); });
+    // ---- #3 direct manipulation: explicit Arrange mode (no accidental drag), tier-locked, reversible ----
+    function captureOrig() { ORIG = {}; Object.keys(NODES).forEach(function (id) { ORIG[id] = { x: NODES[id].x, y: NODES[id].y }; }); }
+    function flash(msg) { var note = document.getElementById('ixArrangeNote'); if (note) { note.textContent = msg; note.hidden = false; } if (ixLive) ixLive.textContent = msg; }
+    function setArrange(on) {
+      IX.arrange = on;
+      var ab = document.getElementById('ixArrange'); if (ab) { ab.classList.toggle('on', on); ab.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+      ['ixReset', 'ixExport'].forEach(function (id) { var el = document.getElementById(id); if (el) el.hidden = !on; });
+      var note = document.getElementById('ixArrangeNote');
+      if (note) { if (on && Object.keys(NODES).length > 12) { note.textContent = 'auto-arranged — drag is for small tweaks'; note.hidden = false; } else note.hidden = true; }
+      canvas.style.cursor = on ? 'grab' : 'default';
+    }
+    function resetLayout() { Object.keys(ORIG).forEach(function (id) { if (NODES[id]) { NODES[id].x = ORIG[id].x; NODES[id].y = ORIG[id].y; NODES[id]._pin = false; } }); flash('layout reset to auto-arrange'); }
+    function exportLayout() {
+      var lines = Object.keys(NODES).map(function (id) { var n = NODES[id]; return '  ' + id + ': { x: ' + Math.round(n.x) + ', y: ' + Math.round(n.y) + ' }'; }).join(',\n');
+      var txt = '// hand-placed coordinates — paste x,y into each NODES entry:\n' + lines;
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { flash('copied x,y for ' + Object.keys(NODES).length + ' systems to clipboard'); }, function () { window.prompt('Copy layout:', txt); });
+      else window.prompt('Copy layout:', txt);
+    }
+    canvas.addEventListener('mousedown', function (ev) {
+      if (!IX.arrange) return;
+      var p = relPos(ev), h = hit(p.x, p.y);
+      if (h) { dragNode = h; dragDX = p.x / scale - NODES[h].x; canvas.style.cursor = 'grabbing'; ev.preventDefault(); }
+    });
+    window.addEventListener('mousemove', function (ev) {
+      if (!dragNode) return;
+      var r = canvas.getBoundingClientRect(), lx = (ev.clientX - r.left) / scale, n = NODES[dragNode];
+      n.x = Math.max(4, Math.min(W - n.w - 4, lx - dragDX)); n._pin = true; // tier-locked: y stays put
+    });
+    window.addEventListener('mouseup', function () { if (dragNode) { dragNode = null; canvas.style.cursor = IX.arrange ? 'grab' : 'default'; } });
+    var ixArrange = document.getElementById('ixArrange'); if (ixArrange) ixArrange.addEventListener('click', function () { setArrange(!IX.arrange); });
+    var ixReset = document.getElementById('ixReset'); if (ixReset) ixReset.addEventListener('click', resetLayout);
+    var ixExport = document.getElementById('ixExport'); if (ixExport) ixExport.addEventListener('click', exportLayout);
 
     // @@ REPLACE: 1-3 critical end-to-end flows a newcomer MUST understand. Each step is one
     // hop {from,to,payload,text}. from/to must be NODES keys; pick flows that touch the most systems.
@@ -348,10 +625,15 @@
       trace = { from: st.from, to: st.to };
       stepStart = -1;
       if (scenBar) scenBar.style.width = '0%';
+      var stEdge = findEdge(st.from, st.to), stLat = stEdge ? edgeLat(stEdge) : null;
+      curStepMs = latStepMs(stLat);
+      var cum = 0, tot = 0, known = false;
+      scen.steps.forEach(function (s, i) { var ee = findEdge(s.from, s.to), L = ee ? edgeLat(ee) : null; if (L != null) { known = true; tot += L; if (i <= scenI) cum += L; } });
       stepEl.innerHTML = '<span class="stepno">Step ' + (scenI + 1) + ' / ' + scen.steps.length + '</span>' +
         '<span class="hop"><b>' + NODES[st.from].label + '</b> <i>→</i> <b>' + NODES[st.to].label + '</b></span>' +
         (st.payload ? ' <code>' + st.payload + '</code>' : '') +
-        '<div class="stext">' + st.text + '</div>';
+        '<div class="stext">' + st.text + '</div>' +
+        (known ? '<div class="lat-read" style="margin-top:6px;font-size:11px;font-weight:700;color:var(--slate)">&#9201; this hop ~<b style="color:' + (stLat != null ? latColor(stLat) : 'var(--slate)') + '">' + (stLat != null ? stLat + ' ms' : 'n/a') + '</b> &middot; cumulative ~' + cum + ' ms &middot; end-to-end ~' + tot + ' ms</div>' : '');
       countEl.textContent = (scenI + 1) + ' / ' + scen.steps.length;
       renderDetail(st.to);
     }
@@ -364,7 +646,8 @@
       Array.prototype.forEach.call(scenSeg.children, function (b) { b.classList.toggle('on', +b.dataset.i === i); });
       showStep();
       renderEdges();
-      play(); // auto-run the moment a scenario is chosen
+      if (reduceMotion) { autoplaying = false; setPlayBtn(); } // reduced-motion: paused, steppable
+      else play(); // auto-run the moment a scenario is chosen
     }
     function goStep(i) { pause(); if (!scen) return; scenI = Math.max(0, Math.min(scen.steps.length - 1, i)); showStep(); }
     function nextStep() { goStep(scenI + 1); }
@@ -465,9 +748,12 @@
 
     window.addEventListener('resize', resize);
     initLayout(function () {
+      captureOrig();
       resize();
       requestAnimationFrame(draw);
       setScenario(0);
+      var hn = (location.hash.match(/node=([\w-]+)/) || [])[1]; // #4 deep-link from schema/api
+      if (hn && NODES[hn]) { sel = hn; setFocus(hn, 'both'); renderDetail(hn); }
     });
   })();
   if (window.lucide) lucide.createIcons();

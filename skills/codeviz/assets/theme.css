@@ -1,0 +1,30 @@
+/* ============================================================
+   codeviz THEME — per-project palette overlay.
+   Loaded AFTER harness.css so it wins on the cascade.
+
+   This default file reproduces the built-in light theme exactly.
+   A codeviz run OVERWRITES it with colors detected from the target
+   repo (its CSS / Tailwind tokens, brand hexes, logo), so the
+   onboarding wears the same aesthetic as the codebase it documents.
+
+   Two layers to set when theming:
+     (1) the DOM tokens harness.css consumes (--cream, --card, --ink,
+         --ink-deep, --amber, --wine, --tan, --slate, --border) — plus,
+         for a dark theme, a handful of rule overrides (body, .topbar,
+         th, pre, code, .status*, .toc) because a few of those tokens
+         play dual roles (e.g. --ink is text AND a dark surface).
+     (2) the --cv-* canvas tokens below, which the system-map <canvas>
+         reads at startup.
+   ============================================================ */
+:root {
+  /* system-map canvas palette (light default == built-in look) */
+  --cv-card:  #fffaf3;              /* normal node fill            */
+  --cv-ink:   #051f38;              /* node label / normal text    */
+  --cv-cream: #fff3e9;              /* emphasised label / pill bg  */
+  --cv-edge:  #662521;             /* edges + arrowheads          */
+  --cv-comet: #feb146;             /* travelling request packet   */
+  --cv-faint: #d19254;             /* planned status / faint      */
+  --cv-sub:   #405770;             /* node sub-label              */
+  --cv-ok:    #2e7d32;             /* built status                */
+  --cv-line:  rgba(5,31,56,0.16);  /* node borders                */
+}
