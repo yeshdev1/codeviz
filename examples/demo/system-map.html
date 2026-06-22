@@ -57,6 +57,11 @@
   .healthbadge b{color:var(--ink);font-weight:700}
   .healthbadge .hk{display:flex;align-items:center;gap:6px}
   .healthbadge .hd{width:9px;height:9px;border-radius:50%;display:inline-block;margin:0 2px 0 6px}
+  .healthbadge .hb-summary{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px}
+  .healthbadge .hb-summary b{font-weight:800}
+  .healthbadge .hb-summary .hn{cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--ink);font-weight:600;font-size:11.5px}
+  .healthbadge .hb-summary .hn:hover{background:rgba(255,255,255,0.08)}
+  .healthbadge .hb-summary .sep{color:var(--sub);margin:0 3px}
   .healthbadge .hb-scen{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:7px}
   .healthbadge .hb-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub)}
   .healthbadge .hsc{appearance:none;background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--sub);border-radius:7px;padding:3px 9px;font:600 11.5px inherit;cursor:pointer}
@@ -135,6 +140,7 @@
     <span id="healthNote"></span>
     <span class="hk"><i class="hd up"></i>healthy <i class="hd deg"></i>degraded <i class="hd down"></i>down</span>
   </div>
+  <div class="hb-summary" id="healthSummary"></div>
   <div class="hb-scen"><span class="hb-lbl">Scenario</span><span id="healthScenPick"></span></div>
 </div>
 
@@ -841,12 +847,29 @@
       btn.className='hsc'+(s===healthScen?' on'+(s.source==='observed'?' obs':''):''); btn.textContent=s.label; btn.dataset.i=i; box.appendChild(btn); });
     box.onclick=function(e){ var b=e.target.closest('button'); if(b) setHealthScen(+b.dataset.i); };
   }
-  function setHealthScen(i){ healthScen=HEALTH_SCENARIOS[i]; buildHealthScen(); updateHealthNote();
+  function frameNode(id){ var n=NODES[id]; if(!n) return; var z=Math.max(cam.z, zBase*2.4), c=center(n);
+    setTarget({z:z, x:vw()/2-c.x*z, y:vh()/2-c.y*z}); }
+  // at-a-glance "what's going on": counts + the actual down/degraded systems, click to fly there
+  function updateHealthSummary(){
+    var el=document.getElementById('healthSummary'); if(!el) return;
+    var down=[], deg=[], up=0;
+    Object.keys(NODES).forEach(function(id){ var s=healthOf(id).state; if(s==='down') down.push(id); else if(s==='degraded') deg.push(id); else up++; });
+    function chips(ids){ return ids.map(function(id){ return '<span class="hn" data-id="'+id+'" title="'+(healthOf(id).note||'')+'">'+NODES[id].label+'</span>'; }).join(' '); }
+    if(!down.length && !deg.length){ el.innerHTML='<b style="color:var(--cv-edge)">✓ All '+up+' systems healthy.</b>'; return; }
+    var h='';
+    if(down.length) h+='<b style="color:var(--cv-down)">✗ '+down.length+' down</b> '+chips(down);
+    if(down.length && deg.length) h+='<span class="sep">·</span>';
+    if(deg.length) h+='<b style="color:var(--cv-warn)">⚠ '+deg.length+' degraded</b> '+chips(deg);
+    h+='<span class="sep">·</span><span style="color:var(--cv-edge)">✓ '+up+' healthy</span>';
+    el.innerHTML=h;
+    el.onclick=function(e){ var t=e.target.closest('.hn'); if(t) frameNode(t.dataset.id); };
+  }
+  function setHealthScen(i){ healthScen=HEALTH_SCENARIOS[i]; buildHealthScen(); updateHealthNote(); updateHealthSummary();
     announce('Health scenario: '+healthScen.label+'. '+(healthScen.source==='observed'?'Observed from Docker.':'Modeled, not observed.')); }
   function setHealth(on){ healthMode=on;
     Array.prototype.forEach.call(document.querySelectorAll('#viewmode button'),function(b){ b.classList.toggle('on', (b.dataset.v==='health')===on); });
     document.getElementById('healthBadge').hidden=!on;
-    if(on){ buildHealthScen(); updateHealthNote(); if(curSvc()<0.5) goLevel('services'); } // health lives at the service level
+    if(on){ buildHealthScen(); updateHealthNote(); updateHealthSummary(); if(curSvc()<0.5) goLevel('services'); } // health lives at the service level
     announce(on?('Health overlay on. '+(healthScen?healthScen.label+'. ':'')+(healthScen&&healthScen.source==='observed'?'Observed from Docker.':'Modeled, not observed.')):'Structure view.');
   }
   document.getElementById('viewmode').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) setHealth(b.dataset.v==='health'); });
