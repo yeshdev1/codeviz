@@ -8,3 +8,6 @@ playwright-report/
 # scratch area for verifying codeviz against real repos — cloned codebases
 # and the onboarding HTML generated from them never get committed
 playground/
+
+# scratch capture output (the committed demo gifs live in examples/clips/)
+/clips/

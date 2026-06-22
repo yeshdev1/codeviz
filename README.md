@@ -37,6 +37,8 @@ Adds **one** level of code-grounded explanation (read from the real source, cite
 
 ## Record a clip
 
+![Guided tour of a codeviz map — a live request walked end to end](examples/clips/codeviz-tour.gif)
+
 ```
 /codeviz-capture health   # or: tour · zoom · focus · overview
 /codeviz-capture tour --speed 2 --secs 5 --caption "A live request, end to end"
@@ -45,6 +47,8 @@ Adds **one** level of code-grounded explanation (read from the real source, cite
 Drives the map headlessly (Playwright) and renders a shareable **MP4** (+ optional `--gif`) of the chosen scene — for a PR, README, or LinkedIn. For a tight social clip, `--speed 2 --secs 5` compresses the motion into ~5s (not a hard cut), and `--caption "<text>"` burns in a lower-third title (rendered in-page, so no fonts needed — shows in both MP4 and GIF). Needs Chromium + ffmpeg; runs locally, publishes nothing.
 
 ## Real health, not just illustrative
+
+![Health overlay — real container status snapped from Docker into the map](examples/clips/codeviz-health.gif)
 
 The map has a **Structure ↔ Health** toggle with switchable health scenarios (sample incident / all-healthy / cascade) — illustrative by default, badged *"modeled — not observed."*
 
