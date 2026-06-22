@@ -35,6 +35,14 @@ codeviz is **granular** — each output is opt-in, because a full run on a large
 
 Adds **one** level of code-grounded explanation (read from the real source, cited `file:line`) to a step of an existing map. It counts your digs in `docs/onboarding/.codeviz-dig.json` and **hard-stops after 5** — past that it points you at the files to read instead, so curiosity can't quietly run up a token bill. ~8–20k per dig.
 
+## Record a clip
+
+```
+/codeviz-capture health   # or: tour · zoom · focus · overview
+```
+
+Drives the map headlessly (Playwright) and renders a shareable **MP4** (+ optional `--gif`) of the chosen scene — for a PR, README, or LinkedIn. Needs Chromium + ffmpeg; runs locally, publishes nothing.
+
 ## Real health, not just illustrative
 
 The map has a **Structure ↔ Health** toggle with switchable health scenarios (sample incident / all-healthy / cascade) — illustrative by default, badged *"modeled — not observed."*
