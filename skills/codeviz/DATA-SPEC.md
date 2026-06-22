@@ -7,13 +7,14 @@ comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[24]{object,field,req,shape,note}:
+fields[27]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
   NODES,status,yes,enum,built|partial|planned (dot colour)
   NODES,about,yes,string,hover-card sentence
   NODES,resp,yes,string[],responsibilities; shown at deep zoom
+  NODES,health,no,{state;p99;err;note},ILLUSTRATIVE health for the overlay; state: up|degraded|down
   DOMAINS,id/tier,yes,string/int,layer id + vertical order
   DOMAINS,label/blurb,yes,string,layer name + short purpose
   DOMAINS,col,yes,hex,layer colour; avoid amber/yellow/orange
@@ -32,6 +33,8 @@ fields[24]{object,field,req,shape,note}:
   step,replyText,no,string,narration for the return leg
   step,replyDetail,no,html,why the response is what it is
   step,oneway,no,bool,fire-and-forget; no response leg in the tour
+  HEALTH_SCEN,id/label/source,no,string,a health snapshot; source: modeled|observed
+  HEALTH_SCEN,base/states,no,'up'/{id:{state,p99,err,note}},base resets all healthy; states override per node
 ```
 
 ## Use cases — how to model common architectures
@@ -51,7 +54,7 @@ usecases[10]{case,model}:
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[24]{case,handling}:
+edgecases[27]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -76,6 +79,9 @@ edgecases[24]{case,handling}:
   fire-and-forget hop,set oneway:true (e.g. email/queue/webhook); shows as a request with no return leg
   response with no content,omit reply (or set a short ack); the return leg still animates with a default label
   dual hover on a hop,hovering the line shows EDGE_DETAIL (the connection); hovering the tour content label shows the payload/response — two separate tooltips
+  health overlay,Structure|Health toggle recolours nodes/edges by health; ILLUSTRATIVE only (badged modeled-not-observed). Set NODES[].health or a node defaults healthy. Never implies live metrics
+  health scenarios,HEALTH_SCENARIOS = named snapshots the reader switches between in Health mode (sample / all-healthy / cascade). base:up resets all; states override per node
+  real (observed) health,/codeviz-health snapshots Docker (state/uptime/restarts/healthchecks) into a source:observed HEALTH_SCENARIOS entry; point-in-time not continuous; never fabricates metrics
 ```
 
 ## Invariants (validate before delivering)

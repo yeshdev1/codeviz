@@ -2,7 +2,7 @@
 
 **Interactive system-design onboarding for any codebase** — a [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin.
 
-Point it at a repo and it generates linked, *interactive* HTML pages that get a new engineer productive fast: a zoomable **system-design atlas** (every box a real system, every arrow a real call, with an animated request/response tour), a data-model page, and a deep API page. See [`examples/demo/system-map.html`](examples/demo/system-map.html).
+Point it at a repo and it generates linked, *interactive* HTML pages that get a new engineer productive fast: a zoomable **system-design atlas** (every box a real system, every arrow a real call, with an animated request/response tour and a Structure/Health overlay), a data-model page, and a deep API page. See [`examples/demo/system-map.html`](examples/demo/system-map.html).
 
 ## Install
 
@@ -34,6 +34,18 @@ codeviz is **granular** — each output is opt-in, because a full run on a large
 ```
 
 Adds **one** level of code-grounded explanation (read from the real source, cited `file:line`) to a step of an existing map. It counts your digs in `docs/onboarding/.codeviz-dig.json` and **hard-stops after 5** — past that it points you at the files to read instead, so curiosity can't quietly run up a token bill. ~8–20k per dig.
+
+## Real health, not just illustrative
+
+The map has a **Structure ↔ Health** toggle with switchable health scenarios (sample incident / all-healthy / cascade) — illustrative by default, badged *"modeled — not observed."*
+
+**Model your own** what-ifs with `/codeviz-scenario "database outage"` — it computes the blast radius up the call graph and adds a switchable scenario chip. To overlay **real** status:
+
+```
+/codeviz-health
+```
+
+reads your local **Docker** (container state, uptime, restarts, healthchecks), maps each container to a system, and writes an **observed** snapshot into the map you can toggle to. It's a point-in-time snapshot, not continuous monitoring — and it never fabricates metrics.
 
 ## What it does (briefly)
 

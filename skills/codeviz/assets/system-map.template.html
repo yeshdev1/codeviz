@@ -14,7 +14,7 @@
     /* canvas (read by JS) */
     --cv-ink:#ededed; --cv-sub:#9b9b9b; --cv-card:#2e2e2e; --cv-edge:#3ecf8e; --cv-comet:#7ff0bd;
     --cv-faint:#6a6a6a; --cv-back:#f5a623; --cv-warn:#f5b34a; --cv-line:rgba(255,255,255,0.16);
-    --cv-chip:#101010; --cv-focus:#0e3b29; --cv-req:#3b9dff; --cv-resp:#ff9e3d;
+    --cv-chip:#101010; --cv-focus:#0e3b29; --cv-req:#3b9dff; --cv-resp:#ff9e3d; --cv-down:#e5484d;
     /* floating glass panels (legend / tour / minimap / tooltip) */
     --glass:rgba(22,22,22,0.94);
   }
@@ -51,6 +51,19 @@
   .legend .sw.back{border-top-color:var(--back)}
   .legend .dot{width:9px;height:9px;border-radius:50%;flex:none}
   .legend .ramp{height:9px;flex:1;border-radius:5px;background:linear-gradient(90deg,#440154,#2a788e,#22a884,#7ad151,#fde725)}
+  .healthbadge{position:absolute;left:50%;transform:translateX(-50%);top:64px;z-index:6;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:7px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .healthbadge[hidden]{display:none}
+  .healthbadge .hb-top{display:flex;align-items:center;gap:10px}
+  .healthbadge b{color:var(--ink);font-weight:700}
+  .healthbadge .hk{display:flex;align-items:center;gap:6px}
+  .healthbadge .hd{width:9px;height:9px;border-radius:50%;display:inline-block;margin:0 2px 0 6px}
+  .healthbadge .hb-scen{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:7px}
+  .healthbadge .hb-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub)}
+  .healthbadge .hsc{appearance:none;background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--sub);border-radius:7px;padding:3px 9px;font:600 11.5px inherit;cursor:pointer}
+  .healthbadge .hsc:hover{color:var(--ink)}
+  .healthbadge .hsc.on{color:#06281b;background:var(--cv-edge);border-color:var(--cv-edge)}
+  .healthbadge .hsc.on.obs{background:var(--cv-req);border-color:var(--cv-req);color:#fff}
+  .healthbadge .hd.up{background:var(--cv-edge)} .healthbadge .hd.deg{background:var(--cv-warn)} .healthbadge .hd.down{background:var(--cv-down)}
   .legend .fdot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-right:6px}
   .legend .fdot.out{background:#3b9dff} .legend .fdot.in{background:#ff9e3d}
   .legend .fchunk{width:14px;height:8px;border-radius:2px;background:#3b9dff;flex:none;margin-right:6px}
@@ -111,7 +124,18 @@
     <button id="zout" aria-label="Zoom out">−</button>
     <button id="fit" class="pill" style="width:auto;height:34px" aria-label="Fit all">Fit</button>
   </div>
+  <div class="seg" id="viewmode" role="tablist" aria-label="View mode">
+    <button data-v="structure" class="on">Structure</button>
+    <button data-v="health">Health</button>
+  </div>
   <button class="pill" id="tourBtn">▶ Guided tour</button>
+</div>
+<div class="healthbadge" id="healthBadge" hidden>
+  <div class="hb-top">
+    <span id="healthNote"></span>
+    <span class="hk"><i class="hd up"></i>healthy <i class="hd deg"></i>degraded <i class="hd down"></i>down</span>
+  </div>
+  <div class="hb-scen"><span class="hb-lbl">Scenario</span><span id="healthScenPick"></span></div>
 </div>
 
 <div class="legend">
@@ -178,7 +202,7 @@
     edge:cvar('--cv-edge','#3ecf8e'), comet:cvar('--cv-comet','#7ff0bd'), faint:cvar('--cv-faint','#6a6a6a'),
     back:cvar('--cv-back','#f5a623'), warn:cvar('--cv-warn','#f5b34a'), line:cvar('--cv-line','rgba(255,255,255,0.16)'),
     chip:cvar('--cv-chip','#101010'), focus:cvar('--cv-focus','#0e3b29'), req:cvar('--cv-req','#3b9dff'), resp:cvar('--cv-resp','#ff9e3d'),
-    glass:cvar('--glass','rgba(22,22,22,0.94)') };
+    glass:cvar('--glass','rgba(22,22,22,0.94)'), down:cvar('--cv-down','#e5484d') };
 
   /* ====================== PROJECT DATA — fill these five @@ REPLACE @@ blocks ======================
      Everything ABOVE and BELOW this section is the reusable engine — do not rewrite it.
@@ -201,10 +225,12 @@
       resp:['Caches hot reads','Backs the job queue'] },
     queue: { tier:2, w:168,h:54, label:'Worker', sub:'background jobs', status:'built',
       about:'Runs slow / unreliable work off the request path with retries.',
-      resp:['Sends notifications','Runs scheduled + retryable jobs'] },
+      resp:['Sends notifications','Runs scheduled + retryable jobs'],
+      health:{ state:'degraded', p99:320, err:0.03, note:'job backlog growing' } },
     ext:   { tier:3, w:168,h:52, label:'3rd party', sub:'e.g. payments', status:'planned',
       about:'An external provider the worker calls (payments, SMS, email, etc.).',
-      resp:['Provider-side capability'] }
+      resp:['Provider-side capability'],
+      health:{ state:'down', err:1, note:'provider outage (illustrative)' } }
   };
   // @@ REPLACE: who calls whom. style: 'solid'=sync request · 'dash'=async (event/queue/
   // webhook/stream) · 'thick'=bulk bytes that bypass the API. Optional 5th element = latency
@@ -279,6 +305,20 @@
         terms:[['async','runs in the background; the caller doesn\u2019t wait'],['backoff','waiting longer between each retry']]}
     ]}
   ];
+
+  // @@ REPLACE: HEALTH SCENARIOS — named snapshots the reader can switch between in Health mode.
+  // source: 'modeled' (illustrative, badged "not observed") | 'observed' (real, e.g. from docker).
+  // base: 'up' resets every node healthy unless overridden; states: per-node {state,p99,err,note}.
+  // The /codeviz-health skill appends a {id:'live', source:'observed', …} snapshot from Docker.
+  var HEALTH_SCENARIOS = [
+    { id:'sample',  label:'Sample incident', source:'modeled' },
+    { id:'healthy', label:'All healthy', source:'modeled', base:'up', states:{} },
+    { id:'dbdeg',   label:'Database degraded (cascade)', source:'modeled', base:'up', states:{
+        pg:{state:'degraded', p99:380, err:0.02, note:'lock contention / slow queries'},
+        api:{state:'degraded', p99:210, err:0.03, note:'waiting on Postgres'},
+        queue:{state:'degraded', p99:420, err:0.04, note:'jobs backing up'} } }
+  ];
+
   /* domains = the "continents". Here they line up with tiers, the natural layering. */
   // per-layer categorical colours: bright on dark, deliberately NOT amber/yellow/orange
   // (those are taken by status + latency) and redundant with the fixed vertical order,
@@ -367,7 +407,23 @@
   function fitAll(instant){ var t=fitRect({x:0,y:0,w:WORLD.w,h:WORLD.h},70); setTarget(t,instant); }
 
   /* ---------- interaction state ---------- */
-  var focusId=null, hoverId=null, hoverEdge=-1, hoverDom=null;
+  var focusId=null, hoverId=null, hoverEdge=-1, hoverDom=null, healthMode=false;
+  var healthScen = (typeof HEALTH_SCENARIOS!=='undefined' && HEALTH_SCENARIOS.length) ? HEALTH_SCENARIOS[0] : null;
+  // ---- health resolves through the ACTIVE health scenario, then a node's own health, then 'up'.
+  // 'modeled' scenarios are illustrative (badged "not observed"); an 'observed' one (e.g. written
+  // by /codeviz-health from Docker) carries real, point-in-time status. p99 defaults to the
+  // node's slowest connected hop when not given.
+  function derivedP99(id){ var p=0; EDGES.forEach(function(e){ if((e[0]===id||e[1]===id)&&typeof e[4]==='number') p=Math.max(p,e[4]); }); return p||null; }
+  function healthOf(id){
+    if(healthScen){ if(healthScen.states && healthScen.states[id]) return healthScen.states[id];
+      if(healthScen.base) return { state:healthScen.base, p99:derivedP99(id), err: healthScen.base==='up'?0.0003:null }; }
+    var n=NODES[id]; if(n.health) return n.health;
+    return { state:'up', p99:derivedP99(id), err:0.0003 };
+  }
+  function healthCol(s){ return s==='down'?COL.down:(s==='degraded'?COL.warn:COL.edge); }
+  function healthGlyph(s){ return s==='down'?'✗':(s==='degraded'?'⚠':'✓'); }
+  function edgeHealth(e){ var a=healthOf(e[0]).state, b=healthOf(e[1]).state; // worst of the two ends
+    return (a==='down'||b==='down')?'down':((a==='degraded'||b==='degraded')?'degraded':'up'); }
   var trace=null, tour={on:false,scen:null,list:[],i:0,play:false,t0:0,dur:2600};
   var tourContentHit=null; // world-space rect of the content label on the active connection
 
@@ -546,11 +602,14 @@
         // during a tour, the hop currently being traversed (either direction) stays bright
         var onTour = trace && ((e[0]===trace.from&&e[1]===trace.to)||(e[0]===trace.to&&e[1]===trace.from));
         ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
-        var ecol = back?COL.back:(e[3]==='thick'?COL.ink:COL.edge);
+        // in Health mode the edge takes the colour of its worst endpoint (down → red, degraded → amber)
+        var eh = healthMode?edgeHealth(e):null;
+        var ecol = healthMode ? healthCol(eh) : (back?COL.back:(e[3]==='thick'?COL.ink:COL.edge));
         // bulk transfers get a faint wide ribbon so "lots of bytes move here" reads instantly
-        if(e[3]==='thick'){ ctx.globalAlpha=svc*(hv||onTour?0.5:lit?0.34:0.13); ctx.strokeStyle=ecol; ctx.lineWidth=iz*12; ctx.lineCap='round'; cstroke(a.x,a.y,c,b.x,b.y); ctx.lineCap='butt'; }
-        ctx.globalAlpha = svc * (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28);
-        ctx.lineWidth = iz*(e[3]==='thick'?2.4:hv?2.6:1.4);
+        if(e[3]==='thick' && !healthMode){ ctx.globalAlpha=svc*(hv||onTour?0.5:lit?0.34:0.13); ctx.strokeStyle=ecol; ctx.lineWidth=iz*12; ctx.lineCap='round'; cstroke(a.x,a.y,c,b.x,b.y); ctx.lineCap='butt'; }
+        // in Health mode: unhealthy paths bright + thick, healthy paths dimmed
+        ctx.globalAlpha = svc * (healthMode ? (eh!=='up'?1:0.22) : (hv||onTour?1 : lit?0.6 : (focusId||trace)?0.06:0.28));
+        ctx.lineWidth = iz*((healthMode&&eh!=='up')?2.6:(e[3]==='thick'?2.4:hv?2.6:1.4));
         ctx.strokeStyle = ecol;
         ctx.setLineDash(e[3]==='dash'?[iz*5,iz*4]:[]);
         cstroke(a.x,a.y,c,b.x,b.y); ctx.setLineDash([]);
@@ -563,12 +622,12 @@
         ctx.closePath(); ctx.fill();
         // ambient data-in-motion: request OUT (blue) + response BACK (orange) on EVERY edge —
         // the standing reminder that links carry data both ways (the tour shows the real order).
-        if(!onTour){
+        if(!onTour && !healthMode){
           var fa=svc*(hv?1 : lit?0.9 : (focusId||trace)?0.18:0.7);
           drawTransfer(a,c,b,e,fa,iz,T);
         }
         // latency heat dot — instant colour read of how slow the hop is
-        if(typeof e[4]==='number' && !hv && !onTour){
+        if(typeof e[4]==='number' && !hv && !onTour && !healthMode){
           var mid=cpt(a.x,a.y,c,b.x,b.y,0.62);
           ctx.globalAlpha=svc*(lit?0.7:0.13); ctx.fillStyle=viridis(latT(e[4]));
           ctx.beginPath(); ctx.arc(mid.x,mid.y,iz*(2.4+latT(e[4])*3.4),0,7); ctx.fill();
@@ -583,21 +642,26 @@
       Object.keys(NODES).forEach(function(id){
         var n=NODES[id], doi=nodeDOI(id), isFocus=id===focusId, isHover=id===hoverId;
         var traceLit = !trace || id===trace.from || id===trace.to;
-        ctx.globalAlpha = svc * doi * (traceLit?1:0.25);
+        var hl = healthMode?healthOf(id):null, hlc = hl?healthCol(hl.state):null;
+        ctx.globalAlpha = svc * doi * (traceLit?1:0.25) * (healthMode&&hl.state==='down'?0.85:1);
         rr(n.x,n.y,n.w,n.h,12);
-        ctx.fillStyle = isFocus?COL.focus:COL.card; ctx.fill();
-        ctx.lineWidth=iz*(isFocus||isHover?2.6:1.6);
-        ctx.strokeStyle=isFocus?COL.edge:(isHover?COL.comet:hexA(domColor(id),0.7)); ctx.stroke();
-        // layer colour accent stripe down the left edge (redundant grouping cue)
-        if(!isFocus){ ctx.save(); rr(n.x,n.y,n.w,n.h,12); ctx.clip();
+        ctx.fillStyle = healthMode ? (hl.state==='down'?hexA(COL.down,0.12):hl.state==='degraded'?hexA(COL.warn,0.10):COL.card) : (isFocus?COL.focus:COL.card); ctx.fill();
+        ctx.lineWidth=iz*(healthMode&&hl.state!=='up'?2.6:(isFocus||isHover?2.6:1.6));
+        ctx.strokeStyle=healthMode?hlc:(isFocus?COL.edge:(isHover?COL.comet:hexA(domColor(id),0.7))); ctx.stroke();
+        // layer colour accent stripe down the left edge (structure mode only)
+        if(!isFocus && !healthMode){ ctx.save(); rr(n.x,n.y,n.w,n.h,12); ctx.clip();
           ctx.fillStyle=domColor(id); ctx.fillRect(n.x, n.y, iz*4, n.h); ctx.restore(); }
-        // status dot
-        ctx.fillStyle=statusCol(n.status); ctx.beginPath(); ctx.arc(n.x+iz*13+0,n.y+iz*13,iz*3.6,0,7); ctx.fill();
+        // top-left dot: layer status, or health state+glyph in Health mode
+        ctx.fillStyle=healthMode?hlc:statusCol(n.status); ctx.beginPath(); ctx.arc(n.x+iz*13,n.y+iz*13,iz*3.8,0,7); ctx.fill();
+        if(healthMode){ ctx.fillStyle=COL.chip; ctx.font='800 '+(iz*5)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(healthGlyph(hl.state), n.x+iz*13, n.y+iz*13.3); }
         // label
         ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=COL.ink;
         ctx.font='800 '+(iz*13)+'px -apple-system,sans-serif';
         ctx.fillText(n.label, n.x+n.w/2, n.y+ (n.sub? n.h/2-iz*7 : n.h/2));
         if(n.sub){ ctx.font='500 '+(iz*10)+'px -apple-system,sans-serif'; ctx.fillStyle=COL.sub; ctx.fillText(n.sub,n.x+n.w/2,n.y+n.h/2+iz*8); }
+        // health metric just below the box (Health mode)
+        if(healthMode){ var m = hl.state==='down'?'✗ no response':((hl.p99?'p99 '+hl.p99+'ms':'')+(hl.err?(hl.p99?' · ':'')+(+(hl.err*100).toFixed(hl.err<0.1?1:0))+'% err':''))||'healthy';
+          ctx.font='700 '+(iz*9.5)+'px -apple-system,sans-serif'; ctx.fillStyle=hlc; ctx.textAlign='center'; ctx.fillText(m, n.x+n.w/2, n.y+n.h+iz*12); }
         // detail: responsibilities below the box at deep zoom
         if(det>0 && n.resp){
           ctx.globalAlpha=svc*doi*det*(traceLit?1:0.25);
@@ -673,7 +737,11 @@
     tip.style.left=Math.max(8,x)+'px'; tip.style.top=Math.max(8,y)+'px';
   }
   function hideTip(){ tip.classList.add('hidden'); }
-  function nodeTipHTML(id){ var n=NODES[id]; return '<b>'+n.label+'</b> <span class="meta">'+n.status+' · '+n.sub+'</span><div class="meta" style="margin-top:0">'+n.about+'</div>'+(n.resp?'<ol>'+n.resp.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ol>':''); }
+  function nodeTipHTML(id){ var n=NODES[id];
+    if(healthMode){ var h=healthOf(id), c=healthCol(h.state);
+      var line = h.state==='down'?'no response':((h.p99?'p99 ~'+h.p99+'ms':'')+(h.err?(h.p99?' · ':'')+(+(h.err*100).toFixed(h.err<0.1?1:0))+'% errors':''));
+      return '<div class="tt" style="color:'+c+'">HEALTH · MODELED (not observed)</div><b>'+n.label+'</b> <span class="meta" style="color:'+c+'">'+healthGlyph(h.state)+' '+h.state+'</span><div class="meta" style="margin-top:0;color:'+c+'">'+line+'</div>'+(h.note?'<div>'+h.note+'</div>':'')+'<div class="meta" style="margin-top:5px;opacity:.75">Illustrative SLOs — codeviz has no live metrics.</div>'; }
+    return '<b>'+n.label+'</b> <span class="meta">'+n.status+' · '+n.sub+'</span><div class="meta" style="margin-top:0">'+n.about+'</div>'+(n.resp?'<ol>'+n.resp.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ol>':''); }
   function edgeTipHTML(ei){ var e=EDGES[ei],k=e[0]+'>'+e[1],st=EDGE_DETAIL[k],kind=e[3]==='dash'?'async event / stream':(e[3]==='thick'?'bulk data transfer (bypasses the API)':'sync request'); return '<div class="tt">THE CONNECTION</div><b>'+NODES[e[0]].label+' → '+NODES[e[1]].label+'</b><div class="meta">'+e[2]+' · '+kind+(typeof e[4]==='number'?' · ~'+e[4]+'ms':'')+(isBack(e)?' · calls up a layer':'')+'</div>'+(st?'<ol>'+st.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>':'')+(tour.on?'<div class="meta" style="margin-top:5px;opacity:.75">Hover the moving label to see what’s being sent.</div>':''); }
   // hovering the CONTENT label (≠ the line): explain the actual payload / response, not the link
   function contentTipHTML(it,resp,lat){
@@ -759,6 +827,29 @@
     Array.prototype.forEach.call(document.querySelectorAll('#levels button'),function(b){ b.classList.toggle('on',b.dataset.z===name); });
   }
   document.getElementById('levels').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) goLevel(b.dataset.z); });
+  // Structure | Health view toggle + health-scenario picker
+  function updateHealthNote(){
+    var el=document.getElementById('healthNote'); if(!el) return;
+    if(healthScen && healthScen.source==='observed')
+      el.innerHTML='<b style="color:var(--cv-req)">● Observed.</b> Live snapshot'+(healthScen.at?' · '+healthScen.at:'')+' from Docker — point-in-time, not continuous.';
+    else el.innerHTML='<b>⚠ Modeled — not observed.</b> Sample SLOs for illustration; codeviz reads static code, not live metrics.';
+  }
+  function buildHealthScen(){
+    var box=document.getElementById('healthScenPick'); if(!box) return; box.innerHTML='';
+    if(typeof HEALTH_SCENARIOS==='undefined') return;
+    HEALTH_SCENARIOS.forEach(function(s,i){ var btn=document.createElement('button');
+      btn.className='hsc'+(s===healthScen?' on'+(s.source==='observed'?' obs':''):''); btn.textContent=s.label; btn.dataset.i=i; box.appendChild(btn); });
+    box.onclick=function(e){ var b=e.target.closest('button'); if(b) setHealthScen(+b.dataset.i); };
+  }
+  function setHealthScen(i){ healthScen=HEALTH_SCENARIOS[i]; buildHealthScen(); updateHealthNote();
+    announce('Health scenario: '+healthScen.label+'. '+(healthScen.source==='observed'?'Observed from Docker.':'Modeled, not observed.')); }
+  function setHealth(on){ healthMode=on;
+    Array.prototype.forEach.call(document.querySelectorAll('#viewmode button'),function(b){ b.classList.toggle('on', (b.dataset.v==='health')===on); });
+    document.getElementById('healthBadge').hidden=!on;
+    if(on){ buildHealthScen(); updateHealthNote(); if(curSvc()<0.5) goLevel('services'); } // health lives at the service level
+    announce(on?('Health overlay on. '+(healthScen?healthScen.label+'. ':'')+(healthScen&&healthScen.source==='observed'?'Observed from Docker.':'Modeled, not observed.')):'Structure view.');
+  }
+  document.getElementById('viewmode').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) setHealth(b.dataset.v==='health'); });
   document.getElementById('zin').addEventListener('click',function(){ zoomBtn(1.5); });
   document.getElementById('zout').addEventListener('click',function(){ zoomBtn(1/1.5); });
   function zoomBtn(f){ var cx=vw()/2,cy=vh()/2,w=screenToWorld(cx,cy),nz=clamp(camT.z*f,zBase*0.6,zBase*7); setTarget({z:nz,x:cx-w.x*nz,y:cy-w.y*nz}); syncLevelPills(); }
@@ -846,7 +937,8 @@
   window.__atlas={ get z(){return cam.z;}, get zBase(){return zBase;}, get svc(){return curSvc();},
     get focus(){return focusId;}, setFocus:setFocus, goLevel:goLevel, fitAll:fitAll,
     startTour:startTour, exitTour:exitTour, get tour(){return {on:tour.on,i:tour.i,scen:tour.scen&&tour.scen.id};},
-    next:tourNext, pause:function(){tour.play=false;},
+    next:tourNext, pause:function(){tour.play=false;}, setHealth:setHealth, get health(){return healthMode;}, healthOf:healthOf,
+    setHealthScen:setHealthScen, get healthScen(){return healthScen&&healthScen.id;}, HEALTH_SCENARIOS:(typeof HEALTH_SCENARIOS!=='undefined'?HEALTH_SCENARIOS:[]),
     contentScreen:function(){ if(!tourContentHit)return null; return worldToScreen(tourContentHit.x+tourContentHit.w/2, tourContentHit.y+tourContentHit.h/2); },
     lineScreen:function(){ if(!trace)return null; var a=center(NODES[trace.from]),b=center(NODES[trace.to]),c=bundle(a.x,a.y,b.x,b.y,0),p=cpt(a.x,a.y,c,b.x,b.y,0.8); return worldToScreen(p.x,p.y); },
     NODES:NODES, EDGES:EDGES, DOMAINS:DOMAINS, COL:COL, snap:function(){ camT={z:cam.z,x:cam.x,y:cam.y}; } };
