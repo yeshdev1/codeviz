@@ -27,7 +27,7 @@ Otherwise infer the cascade by propagating impairment **up the call edges** (a s
   - async (`dash`) dependency (event/queue/webhook) → usually **degraded** at most, often still **up** (fire-and-forget tolerates it) — say which and why.
   - bulk (`thick`) → **degraded**.
 - Recurse upward, **damping one level each hop** (down → degraded → up): real systems have timeouts, retries, circuit breakers and caches that blunt cascades.
-- For each affected node write a one-line `note` naming the path, e.g. `degraded — calls Postgres (down) via sync SQL`.
+- For each affected node write a **full, self-contained one-line `note`** — symptom + the dependency path that causes it, e.g. `degraded — sync SQL to Postgres (down), so reads time out`. The map shows this note **inline** in the health summary (not just on hover), so it should read on its own.
 
 **This is a hypothesis from static structure** — it cannot see retries/breakers/caches/timeouts. Keep `source:'modeled'` and say so.
 

@@ -57,14 +57,17 @@
   .healthbadge b{color:var(--ink);font-weight:700}
   .healthbadge .hk{display:flex;align-items:center;gap:6px}
   .healthbadge .hd{width:9px;height:9px;border-radius:50%;display:inline-block;margin:0 2px 0 6px}
-  .healthbadge .hb-summary{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px}
-  .healthbadge .hb-summary b{font-weight:800}
-  .healthbadge .hb-summary .hn{cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--ink);font-weight:600;font-size:11.5px}
-  .healthbadge .hb-summary .hn:hover{background:rgba(255,255,255,0.08)}
-  .healthbadge .hb-summary .sep{color:var(--sub);margin:0 3px}
-  .healthbadge .hb-scen{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:7px}
+  .healthbadge{max-width:600px}
+  .healthbadge .hb-summary{display:block;font-size:12px}
+  .healthbadge .hs-counts{font-weight:700;margin-bottom:4px}
+  .healthbadge .hs-list{display:flex;flex-direction:column;gap:3px}
+  .healthbadge .hs-row{cursor:pointer;color:var(--sub);display:flex;gap:7px;padding:2px 5px;border-radius:6px;line-height:1.35}
+  .healthbadge .hs-row:hover{background:rgba(255,255,255,0.06)}
+  .healthbadge .hs-row b{color:var(--ink);font-weight:700}
+  .healthbadge .hs-row .hd{margin:5px 0 0;flex:none}
+  .healthbadge .hb-scen{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px}
+  .healthbadge .hsc{appearance:none;background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--sub);border-radius:8px;padding:4px 13px;font:600 11.5px inherit;cursor:pointer}
   .healthbadge .hb-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub)}
-  .healthbadge .hsc{appearance:none;background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--sub);border-radius:7px;padding:3px 9px;font:600 11.5px inherit;cursor:pointer}
   .healthbadge .hsc:hover{color:var(--ink)}
   .healthbadge .hsc.on{color:#06281b;background:var(--cv-edge);border-color:var(--cv-edge)}
   .healthbadge .hsc.on.obs{background:var(--cv-req);border-color:var(--cv-req);color:#fff}
@@ -854,15 +857,14 @@
     var el=document.getElementById('healthSummary'); if(!el) return;
     var down=[], deg=[], up=0;
     Object.keys(NODES).forEach(function(id){ var s=healthOf(id).state; if(s==='down') down.push(id); else if(s==='degraded') deg.push(id); else up++; });
-    function chips(ids){ return ids.map(function(id){ return '<span class="hn" data-id="'+id+'" title="'+(healthOf(id).note||'')+'">'+NODES[id].label+'</span>'; }).join(' '); }
-    if(!down.length && !deg.length){ el.innerHTML='<b style="color:var(--cv-edge)">✓ All '+up+' systems healthy.</b>'; return; }
-    var h='';
-    if(down.length) h+='<b style="color:var(--cv-down)">✗ '+down.length+' down</b> '+chips(down);
-    if(down.length && deg.length) h+='<span class="sep">·</span>';
-    if(deg.length) h+='<b style="color:var(--cv-warn)">⚠ '+deg.length+' degraded</b> '+chips(deg);
-    h+='<span class="sep">·</span><span style="color:var(--cv-edge)">✓ '+up+' healthy</span>';
-    el.innerHTML=h;
-    el.onclick=function(e){ var t=e.target.closest('.hn'); if(t) frameNode(t.dataset.id); };
+    if(!down.length && !deg.length){ el.innerHTML='<div class="hs-counts" style="color:var(--cv-edge)">✓ All '+up+' systems healthy — nothing degraded or down.</div>'; el.onclick=null; return; }
+    function metrics(h){ var m=[]; if(h.p99) m.push('p99 '+h.p99+'ms'); if(typeof h.err==='number'&&h.err>0) m.push((+(h.err*100).toFixed(h.err<0.1?1:0))+'% errors'); return m.join(' · '); }
+    // each affected system gets a full one-line explanation: state · metrics · why
+    function row(id,cls){ var h=healthOf(id), reason=[metrics(h), h.note].filter(Boolean).join(' — ');
+      return '<div class="hs-row" data-id="'+id+'"><i class="hd '+cls+'"></i><span><b>'+NODES[id].label+'</b> <span style="color:'+healthCol(healthOf(id).state)+'">'+healthOf(id).state+'</span>'+(reason?' · '+reason:'')+'</span></div>'; }
+    var counts='<span style="color:var(--cv-down)">✗ '+down.length+' down</span> · <span style="color:var(--cv-warn)">⚠ '+deg.length+' degraded</span> · <span style="color:var(--cv-edge)">✓ '+up+' healthy</span> &nbsp;<span style="color:var(--sub);font-weight:400">— click a system to jump to it</span>';
+    el.innerHTML='<div class="hs-counts">'+counts+'</div><div class="hs-list">'+down.map(function(id){return row(id,'down');}).join('')+deg.map(function(id){return row(id,'deg');}).join('')+'</div>';
+    el.onclick=function(e){ var t=e.target.closest('.hs-row'); if(t) frameNode(t.dataset.id); };
   }
   function setHealthScen(i){ healthScen=HEALTH_SCENARIOS[i]; buildHealthScen(); updateHealthNote(); updateHealthSummary();
     announce('Health scenario: '+healthScen.label+'. '+(healthScen.source==='observed'?'Observed from Docker.':'Modeled, not observed.')); }
