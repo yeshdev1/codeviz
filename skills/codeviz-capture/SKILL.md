@@ -19,7 +19,18 @@ The bundled tool is `assets/capture.js` (next to this skill). From the repo root
 node <skill>/assets/capture.js --map docs/onboarding/system-map.html --scene tour --gif
 ```
 
-Flags: `--map <path>` (default `docs/onboarding/system-map.html`) · `--scene <name>` · `--out <file.mp4>` (default `codeviz-<scene>.mp4`) · `--gif` (also emit a GIF) · `--w`/`--h` (viewport, default 1280×800).
+Flags: `--map <path>` (default `docs/onboarding/system-map.html`) · `--scene <name>` · `--out <file.mp4>` (default `codeviz-<scene>.mp4`) · `--gif` (also emit a GIF) · `--w`/`--h` (viewport, default 1280×800) · `--speed <x>` (time-compress, `2` = twice as fast) · `--secs <n>` (hard-trim the clip to ~n seconds) · `--caption "<text>"` (burn a lower-third caption into the clip).
+
+## Tighten & brand (5-second social clips)
+The raw scenes run ~7–10s. To land a tight, captioned demo:
+
+```
+node <skill>/assets/capture.js --map docs/onboarding/system-map.html --scene tour \
+  --speed 2 --secs 5 --caption "Guided tour — a live request, end to end" --gif
+```
+
+- **`--speed 2`** time-compresses the motion (so ~10s of tour becomes ~5s of *action*, not a cut-off clip); **`--secs 5`** then caps the exact length. Use them together for a tight ~5s — `--secs` alone just trims, `--speed` alone just speeds up.
+- **`--caption`** bakes the text in as a lower-third pill, rendered in-page (so it needs no system fonts or ffmpeg `drawtext` — works on any box, shows up in both MP4 and GIF). Keep it to one short line; it stays on screen for the whole clip.
 
 ## Scenes (`--scene`)
 - **tour** — opens the guided tour and walks a few request→response hops (default).
@@ -31,7 +42,7 @@ Flags: `--map <path>` (default `docs/onboarding/system-map.html`) · `--scene <n
 Pick the scene that matches the story; `health` and `tour` make the strongest social clips. Report the output path(s) and remind the user MP4 is best for LinkedIn/GitHub, GIF for inline autoplay.
 
 ## Customizing
-To stage a bespoke sequence, copy `assets/capture.js`, add a scene to the `SCENES` map, and call the same `window.__atlas` hooks the others use: `goLevel('continents|services|detail')`, `startTour(i)` / `next()` / `exitTour()`, `setFocus(id)`, `setHealth(true)` / `setHealthScen(i)`, plus DOM clicks (`#viewmode button[data-v="health"]`, `.hs-row[data-id="…"]`). Keep clips ~5–10s; trim with ffmpeg (`-t 6`) if needed.
+To stage a bespoke sequence, copy `assets/capture.js`, add a scene to the `SCENES` map, and call the same `window.__atlas` hooks the others use: `goLevel('continents|services|detail')`, `startTour(i)` / `next()` / `exitTour()`, `setFocus(id)`, `setHealth(true)` / `setHealthScen(i)`, plus DOM clicks (`#viewmode button[data-v="health"]`, `.hs-row[data-id="…"]`). Keep clips ~5–10s; reach for `--speed`/`--secs` rather than re-encoding by hand.
 
 ## Guardrails
 - Local + headless only — never publishes anywhere; the user shares the file themselves.

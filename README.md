@@ -39,9 +39,10 @@ Adds **one** level of code-grounded explanation (read from the real source, cite
 
 ```
 /codeviz-capture health   # or: tour · zoom · focus · overview
+/codeviz-capture tour --speed 2 --secs 5 --caption "A live request, end to end"
 ```
 
-Drives the map headlessly (Playwright) and renders a shareable **MP4** (+ optional `--gif`) of the chosen scene — for a PR, README, or LinkedIn. Needs Chromium + ffmpeg; runs locally, publishes nothing.
+Drives the map headlessly (Playwright) and renders a shareable **MP4** (+ optional `--gif`) of the chosen scene — for a PR, README, or LinkedIn. For a tight social clip, `--speed 2 --secs 5` compresses the motion into ~5s (not a hard cut), and `--caption "<text>"` burns in a lower-third title (rendered in-page, so no fonts needed — shows in both MP4 and GIF). Needs Chromium + ffmpeg; runs locally, publishes nothing.
 
 ## Real health, not just illustrative
 
