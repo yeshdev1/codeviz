@@ -2,7 +2,7 @@
 description: Record a shareable clip (MP4/GIF) of a generated codeviz system map — tour, health, zoom, or focus
 ---
 
-Run the **codeviz-capture** skill on $ARGUMENTS (a scene: `tour` · `health` · `zoom` · `focus` · `overview`; default `tour`. May also include `--map <path>` · `--gif` · `--speed <x>` · `--secs <n>` · `--caption "<text>"`).
+Run the **codeviz-capture** skill on $ARGUMENTS (a scene: `tour` · `health` · `zoom` · `focus` · `datamodel` · `overview`; default `tour`. May also include `--map <path>` · `--gif` · `--speed <x>` · `--secs <n>` · `--caption "<text>"`).
 
 For a tight, branded social clip, pair `--speed 2 --secs 5` (≈5s of motion, not a cut-off) with a one-line `--caption` (burned in as a lower-third pill, no fonts needed).
 

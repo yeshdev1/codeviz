@@ -108,6 +108,58 @@
   .focusbar.show{display:flex}
   .focusbar b{color:var(--accent)}
   .focusbar button{appearance:none;background:transparent;border:1px solid var(--line);color:var(--sub);border-radius:7px;padding:5px 9px;cursor:pointer;font:600 12px inherit}
+  /* data-model drill-in (ER diagram + joins) — opens when a datastore node is clicked */
+  .er-scrim{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:18}
+  .er-scrim[hidden]{display:none}
+  .erPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(1060px,calc(100% - 36px));height:min(83vh,780px);background:var(--glass);border:1px solid var(--line);border-radius:16px;z-index:19;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden}
+  .erPanel[hidden]{display:none}
+  .er-head{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .er-title{display:flex;align-items:baseline;gap:9px;min-width:0}
+  .er-title b{color:var(--ink);font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .er-engine{color:var(--sub);font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:1px 7px;flex:none}
+  .er-tabs{display:inline-flex;margin-left:auto;background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:9px;overflow:hidden;flex:none}
+  .er-tabs button{appearance:none;background:transparent;border:0;color:var(--sub);padding:6px 12px;font:600 12px inherit;cursor:pointer}
+  .er-tabs button+button{border-left:1px solid var(--line)}
+  .er-tabs button.on{background:var(--card);color:var(--ink)}
+  .er-close{appearance:none;background:transparent;border:1px solid var(--line);color:var(--sub);width:30px;height:30px;border-radius:8px;font-size:18px;line-height:1;cursor:pointer;flex:none}
+  .er-close:hover{color:var(--ink)}
+  .er-scroll{position:relative;flex:1;overflow:auto;padding:18px}
+  .er-links{position:absolute;left:0;top:0;pointer-events:none;z-index:0;overflow:visible}
+  .er-tables{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:16px;align-content:flex-start}
+  .er-tables[hidden]{display:none}
+  .er-table{position:relative;width:250px;background:var(--card);border:1px solid var(--line);border-top:2px solid var(--tc,var(--accent));border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+  .er-table.flash{animation:erflash 1.1s ease}
+  @keyframes erflash{0%,100%{box-shadow:0 4px 18px rgba(0,0,0,.25)}30%{box-shadow:0 0 0 2px var(--tc,var(--accent)),0 6px 24px rgba(0,0,0,.45)}}
+  .er-th{display:flex;align-items:center;gap:8px;padding:8px 11px;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--line)}
+  .er-tname{font-weight:800;color:var(--ink);font-size:12.5px}
+  .er-tag{margin-left:auto;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#f5b34a;border:1px solid rgba(245,179,74,.5);border-radius:5px;padding:0 5px}
+  .er-tabout{padding:6px 11px;color:var(--sub);font-size:11px;line-height:1.4;border-bottom:1px solid var(--line)}
+  .er-cols{display:flex;flex-direction:column}
+  .er-col{display:flex;align-items:center;gap:8px;padding:5px 11px;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.05)}
+  .er-col:last-child{border-bottom:0}
+  .er-col.has-fk{cursor:pointer}
+  .er-col.has-fk:hover{background:rgba(255,255,255,0.05)}
+  .er-k{width:20px;font-size:8.5px;font-weight:800;letter-spacing:.3px;color:var(--sub);flex:none;text-align:center}
+  .er-k.pk{color:#f5b34a} .er-k.fk{color:var(--cv-req)}
+  .er-cn{color:var(--ink);font-weight:600}
+  .er-ct{margin-left:auto;color:var(--sub);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px}
+  .er-cnote{color:var(--sub);cursor:help}
+  .er-access{position:relative;z-index:1;display:flex;flex-direction:column;gap:12px;max-width:780px}
+  .er-access[hidden]{display:none}
+  .er-q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .er-qh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .er-qh b{color:var(--ink);font-size:13px}
+  .er-via{color:var(--sub);font-size:11px}
+  .er-chain{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:8px 0}
+  .er-chip{background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--ink);cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .er-chip:hover{border-color:var(--accent);color:var(--accent)}
+  .er-join{color:var(--accent);font-weight:800;margin:0 2px}
+  .er-qabout{color:var(--sub);font-size:12px;line-height:1.5;margin-top:2px}
+  .er-sql{margin:9px 0 0;background:#0e0e0e;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:#bfe3d2;font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto;white-space:pre-wrap}
+  .er-empty{color:var(--sub);font-size:12.5px;padding:8px}
+  .er-empty code{background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:5px;color:var(--accent)}
+  .er-foot{padding:9px 16px;border-top:1px solid var(--line);color:var(--sub);font-size:11px;display:flex;gap:8px;align-items:center}
+  .er-foot b{color:var(--ink);font-weight:700}
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style></head>
 <body>
@@ -184,6 +236,26 @@
 </div>
 
 <div class="tip hidden" id="tip"></div>
+
+<!-- data-model drill-in: opens when a datastore node is clicked -->
+<div class="er-scrim" id="erScrim" hidden></div>
+<div class="erPanel" id="erPanel" hidden role="dialog" aria-modal="true" aria-label="Data model">
+  <div class="er-head">
+    <div class="er-title"><b id="erName"></b><span class="er-engine" id="erEngine"></span></div>
+    <div class="er-tabs" id="erTabs" role="tablist">
+      <button data-t="schema" class="on">Schema</button>
+      <button data-t="access">Joins &amp; retrieval</button>
+    </div>
+    <button class="er-close" id="erClose" aria-label="Close data model">×</button>
+  </div>
+  <div class="er-scroll" id="erScroll">
+    <svg class="er-links" id="erLinks" aria-hidden="true"></svg>
+    <div class="er-tables" id="erTables"></div>
+    <div class="er-access" id="erAccess" hidden></div>
+  </div>
+  <div class="er-foot" id="erFoot"></div>
+</div>
+
 <div class="sr" id="live" aria-live="polite"></div>
 
 <script>
@@ -198,7 +270,7 @@
    - bundled, curved edges to defeat the hairball (Holten hierarchical bundling)
    - animated camera transitions for object constancy (Heer & Robertson)
    - a fly-to guided tour for onboarding (scrollytelling / narrative sequencing)
-   Self-contained: no framework, no CDN. Fill the five @@ REPLACE @@ data blocks below.
+   Self-contained: no framework, no CDN. Fill the @@ REPLACE @@ data blocks below.
    ============================================================ */
 (function(){
   'use strict';
@@ -213,9 +285,9 @@
     chip:cvar('--cv-chip','#101010'), focus:cvar('--cv-focus','#0e3b29'), req:cvar('--cv-req','#3b9dff'), resp:cvar('--cv-resp','#ff9e3d'),
     glass:cvar('--glass','rgba(22,22,22,0.94)'), down:cvar('--cv-down','#e5484d') };
 
-  /* ====================== PROJECT DATA — fill these five @@ REPLACE @@ blocks ======================
+  /* ====================== PROJECT DATA — fill these @@ REPLACE @@ blocks ======================
      Everything ABOVE and BELOW this section is the reusable engine — do not rewrite it.
-     NODES · EDGES · EDGE_DETAIL · SCENARIOS · DOMAINS. (No x/y needed — auto-laid out by layer.) */
+     NODES · EDGES · EDGE_DETAIL · SCENARIOS · DATAMODEL · DOMAINS. (No x/y needed — auto-laid out by layer.) */
   // @@ REPLACE: one entry per system — clients, services, datastores, queues/workers,
   // 3rd parties, CDN/storage. tier = layer index (0 = top). status: built|partial|planned.
   // about + resp[] power the hover card. No x/y — the engine lays nodes out by layer.
@@ -327,6 +399,67 @@
         api:{state:'degraded', p99:210, err:0.03, note:'waiting on Postgres'},
         queue:{state:'degraded', p99:420, err:0.04, note:'jobs backing up'} } }
   ];
+
+  // @@ REPLACE: DATA MODEL — per-datastore schema. Keyed by a NODES id that is a datastore
+  // (db, cache, object store…). Clicking that node opens its ER diagram + join/retrieval view.
+  // tables[]: {name, about?, status?, cols[]} where a col is {name,type,pk?,fk?'table.col',nullable?,note?}.
+  // queries[]: notable join/retrieval paths — {name, via?(a NODES id), tables[], about?, sql?}.
+  // grain = how deep this was modelled (overview|standard|full); shown in the footer.
+  // @@ REPLACE: DATA MODEL — per-datastore schema. Keyed by a NODES id that is a datastore
+  // (db / cache / object store…). Clicking that node opens its ER diagram + join/retrieval view.
+  // tables[]: {name, about?, status?, cols[]} where a col is {name,type,pk?,fk?'table.col',nullable?,note?}.
+  // queries[]: notable join/retrieval paths — {name, via?(a NODES id), tables[], about?, sql?}.
+  // grain = how deep this was modelled (overview|standard|full); shown in the footer.
+  var DATAMODEL = {
+    pg: { engine:'Postgres', grain:'standard',
+      about:'The relational source of truth — core entities and the relationships between them.',
+      tables:[
+        { name:'users', about:'One row per account.', cols:[
+          {name:'id', type:'uuid', pk:true},
+          {name:'email', type:'text', nullable:false, note:'unique'},
+          {name:'created_at', type:'timestamptz'} ] },
+        { name:'orders', about:'A purchase placed by a user.', cols:[
+          {name:'id', type:'uuid', pk:true},
+          {name:'user_id', type:'uuid', fk:'users.id', note:'who placed it'},
+          {name:'status', type:'text', note:'pending|paid|shipped'},
+          {name:'total_cents', type:'int'},
+          {name:'created_at', type:'timestamptz'} ] },
+        { name:'order_items', about:'Line items — many per order.', cols:[
+          {name:'id', type:'uuid', pk:true},
+          {name:'order_id', type:'uuid', fk:'orders.id'},
+          {name:'product_id', type:'uuid', fk:'products.id'},
+          {name:'qty', type:'int'},
+          {name:'price_cents', type:'int'} ] },
+        { name:'products', about:'Catalogue of things for sale.', cols:[
+          {name:'id', type:'uuid', pk:true},
+          {name:'name', type:'text'},
+          {name:'price_cents', type:'int'},
+          {name:'active', type:'bool'} ] }
+      ],
+      queries:[
+        { name:'A user\u2019s order history', via:'api', tables:['orders','order_items','products','users'],
+          about:'The API joins orders \u2192 items \u2192 products to render a user\u2019s purchase history in a single round trip.',
+          sql:'SELECT o.id, o.created_at, p.name, i.qty, i.price_cents\nFROM orders o\nJOIN order_items i ON i.order_id = o.id\nJOIN products p ON p.id = i.product_id\nWHERE o.user_id = $1\nORDER BY o.created_at DESC;' },
+        { name:'Best-selling products', via:'api', tables:['order_items','products'],
+          about:'Aggregates line items by product to rank sellers.',
+          sql:'SELECT p.name, sum(i.qty) AS sold\nFROM order_items i\nJOIN products p ON p.id = i.product_id\nGROUP BY p.name\nORDER BY sold DESC\nLIMIT 10;' }
+      ] },
+    redis: { engine:'Redis', grain:'overview',
+      about:'In-memory key-value store \u2014 no relational schema. Keys are namespaced by purpose; most carry a TTL so hot data expires on its own. (FKs to other stores show as badges only.)',
+      tables:[
+        { name:'session:{token}', about:'A logged-in session, read on every request.', cols:[
+          {name:'token', type:'key', pk:true, note:'TTL 24h'},
+          {name:'user_id', type:'uuid', fk:'users.id', note:'in Postgres'},
+          {name:'expires_at', type:'unix-ts'} ] },
+        { name:'cache:user:{id}', about:'Cached user row so hot reads skip Postgres.', cols:[
+          {name:'id', type:'key', pk:true, fk:'users.id', note:'TTL 5m'},
+          {name:'json', type:'string', note:'serialized user'} ] }
+      ],
+      queries:[
+        { name:'Resolve a session', via:'api', tables:['session:{token}'],
+          about:'The API reads the session by token and trusts its user_id \u2014 no database round trip on the hot path.' }
+      ] }
+  };
 
   /* domains = the "continents". Here they line up with tiers, the natural layering. */
   // per-layer categorical colours: bright on dark, deliberately NOT amber/yellow/orange
@@ -668,6 +801,15 @@
         ctx.font='800 '+(iz*13)+'px -apple-system,sans-serif';
         ctx.fillText(n.label, n.x+n.w/2, n.y+ (n.sub? n.h/2-iz*7 : n.h/2));
         if(n.sub){ ctx.font='500 '+(iz*10)+'px -apple-system,sans-serif'; ctx.fillStyle=COL.sub; ctx.fillText(n.sub,n.x+n.w/2,n.y+n.h/2+iz*8); }
+        // data-model affordance: a tiny "table rows" chip, top-right, on datastore nodes
+        if(!healthMode && typeof DATAMODEL!=='undefined' && DATAMODEL[id]){
+          var cw=iz*15, ch=iz*11, cx2=n.x+n.w-cw-iz*6, cy2=n.y+iz*6, dc=domColor(id);
+          ctx.globalAlpha=svc*doi*(traceLit?1:0.25); rr(cx2,cy2,cw,ch,iz*3);
+          ctx.fillStyle=hexA(dc,0.16); ctx.fill(); ctx.lineWidth=iz*0.9; ctx.strokeStyle=hexA(dc,0.7); ctx.stroke();
+          ctx.strokeStyle=hexA(COL.ink,0.65); ctx.lineWidth=iz*0.8;
+          for(var lr=0;lr<3;lr++){ var ly=cy2+ch*(0.28+lr*0.22); ctx.beginPath(); ctx.moveTo(cx2+iz*3.2,ly); ctx.lineTo(cx2+cw-iz*3.2,ly); ctx.stroke(); }
+          ctx.globalAlpha = svc * doi * (traceLit?1:0.25) * (healthMode&&hl&&hl.state==='down'?0.85:1);
+        }
         // health metric just below the box (Health mode)
         if(healthMode){ var m = hl.state==='down'?'✗ no response':((hl.p99?'p99 '+hl.p99+'ms':'')+(hl.err?(hl.p99?' · ':'')+(+(hl.err*100).toFixed(hl.err<0.1?1:0))+'% err':''))||'healthy';
           ctx.font='700 '+(iz*9.5)+'px -apple-system,sans-serif'; ctx.fillStyle=hlc; ctx.textAlign='center'; ctx.fillText(m, n.x+n.w/2, n.y+n.h+iz*12); }
@@ -750,7 +892,8 @@
     if(healthMode){ var h=healthOf(id), c=healthCol(h.state);
       var line = h.state==='down'?'no response':((h.p99?'p99 ~'+h.p99+'ms':'')+(h.err?(h.p99?' · ':'')+(+(h.err*100).toFixed(h.err<0.1?1:0))+'% errors':''));
       return '<div class="tt" style="color:'+c+'">HEALTH · MODELED (not observed)</div><b>'+n.label+'</b> <span class="meta" style="color:'+c+'">'+healthGlyph(h.state)+' '+h.state+'</span><div class="meta" style="margin-top:0;color:'+c+'">'+line+'</div>'+(h.note?'<div>'+h.note+'</div>':'')+'<div class="meta" style="margin-top:5px;opacity:.75">Illustrative SLOs — codeviz has no live metrics.</div>'; }
-    return '<b>'+n.label+'</b> <span class="meta">'+n.status+' · '+n.sub+'</span><div class="meta" style="margin-top:0">'+n.about+'</div>'+(n.resp?'<ol>'+n.resp.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ol>':''); }
+    var store=(typeof isStore==='function'&&isStore(id))?'<div class="meta" style="margin-top:5px;color:'+COL.req+'">&#9636; Click to open its data model &mdash; tables, keys &amp; joins.</div>':'';
+    return '<b>'+n.label+'</b> <span class="meta">'+n.status+' · '+n.sub+'</span><div class="meta" style="margin-top:0">'+n.about+'</div>'+(n.resp?'<ol>'+n.resp.map(function(r){return '<li>'+r+'</li>';}).join('')+'</ol>':'')+store; }
   function edgeTipHTML(ei){ var e=EDGES[ei],k=e[0]+'>'+e[1],st=EDGE_DETAIL[k],kind=e[3]==='dash'?'async event / stream':(e[3]==='thick'?'bulk data transfer (bypasses the API)':'sync request'); return '<div class="tt">THE CONNECTION</div><b>'+NODES[e[0]].label+' → '+NODES[e[1]].label+'</b><div class="meta">'+e[2]+' · '+kind+(typeof e[4]==='number'?' · ~'+e[4]+'ms':'')+(isBack(e)?' · calls up a layer':'')+'</div>'+(st?'<ol>'+st.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol>':'')+(tour.on?'<div class="meta" style="margin-top:5px;opacity:.75">Hover the moving label to see what’s being sent.</div>':''); }
   // hovering the CONTENT label (≠ the line): explain the actual payload / response, not the link
   function contentTipHTML(it,resp,lat){
@@ -763,6 +906,122 @@
     return h;
   }
   function domTipHTML(did){ var d=DOM[did]; return '<b>'+d.label+'</b><div class="meta">'+d.blurb+' · '+d.members.length+' systems</div><div class="meta" style="margin-top:0">'+d.members.map(function(id){return NODES[id].label;}).join(', ')+'</div><div class="meta">Click to zoom in.</div>'; }
+
+  /* ---------- data-model drill-in (ER diagram + joins/retrieval) ---------- */
+  var erOpen=null;
+  var ERPAL=['#7aa2f7','#3ecf8e','#bb9af7','#f7768e','#7dcfff','#e0af68'];
+  function dmStores(){ return (typeof DATAMODEL!=='undefined')?DATAMODEL:{}; }
+  function isStore(id){ return !!dmStores()[id]; }
+  function erEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':'&quot;';}); }
+  function tblId(name){ return 'ert-'+name.replace(/[^a-zA-Z0-9]/g,'_'); }
+  // colour a table by an explicit domain, else by its schema prefix (auth./public./storage.)
+  function tableColor(t,storeId){
+    if(t.accent) return t.accent;
+    if(t.domain && DOM[t.domain]) return DOM[t.domain].col;
+    var p=t.name.indexOf('.')>=0?t.name.split('.')[0]:'_', h=0;
+    for(var i=0;i<p.length;i++) h=(h*31+p.charCodeAt(i))>>>0;
+    return ERPAL[h%ERPAL.length];
+  }
+  function relCount(DM){ var n=0; (DM.tables||[]).forEach(function(t){ (t.cols||[]).forEach(function(c){ if(c.fk) n++; }); }); return n; }
+
+  function openDataModel(id){
+    var DM=dmStores()[id]; if(!DM) return;
+    erOpen=id;
+    document.getElementById('erName').textContent=(NODES[id]?NODES[id].label:id)+' · data model';
+    document.getElementById('erEngine').textContent=DM.engine||'';
+    buildERSchema(id); buildERAccess(id);
+    var t=(DM.tables||[]).length, r=relCount(DM);
+    document.getElementById('erFoot').innerHTML='<b>'+t+'</b> '+(t===1?'entity':'entities')+' · <b>'+r+'</b> relationship'+(r===1?'':'s')+(DM.grain?' · detail: <b>'+erEsc(DM.grain)+'</b>':'')+'<span style="margin-left:auto;opacity:.85">Modeled from the schema source — verify against your live database.</span>';
+    setERTab('schema');
+    document.getElementById('erScrim').hidden=false;
+    document.getElementById('erPanel').hidden=false;
+    requestAnimationFrame(function(){ requestAnimationFrame(drawERLinks); });
+    document.getElementById('erClose').focus();
+    announce((NODES[id]?NODES[id].label:id)+' data model opened — '+t+' entities, '+r+' relationships.');
+  }
+  function closeDataModel(){ if(erOpen==null) return; erOpen=null; document.getElementById('erPanel').hidden=true; document.getElementById('erScrim').hidden=true; if(cv&&cv.focus) cv.focus(); }
+
+  function buildERSchema(id){
+    var DM=dmStores()[id], host=document.getElementById('erTables'); host.innerHTML='';
+    (DM.tables||[]).forEach(function(t){
+      var card=document.createElement('div'); card.className='er-table'; card.id=tblId(t.name);
+      card.style.setProperty('--tc', tableColor(t,id));
+      var h='<div class="er-th"><span class="er-tname">'+erEsc(t.name)+'</span>'+((t.status&&t.status!=='built')?'<span class="er-tag">'+erEsc(t.status)+'</span>':'')+'</div>';
+      if(t.about) h+='<div class="er-tabout">'+erEsc(t.about)+'</div>';
+      h+='<div class="er-cols">';
+      (t.cols||[]).forEach(function(c){
+        var key=c.pk?'<span class="er-k pk" title="primary key">PK</span>':(c.fk?'<span class="er-k fk" title="foreign key → '+erEsc(c.fk)+'">FK</span>':'<span class="er-k"></span>');
+        h+='<div class="er-col'+(c.fk?' has-fk':'')+'" data-col="'+erEsc(t.name+'.'+c.name)+'"'+(c.fk?' data-fk="'+erEsc(c.fk)+'"':'')+'>'+key+
+          '<span class="er-cn">'+erEsc(c.name)+'</span><span class="er-ct">'+erEsc(c.type||'')+(c.nullable?'?':'')+'</span>'+
+          (c.note?'<span class="er-cnote" title="'+erEsc(c.note)+'">&#9432;</span>':'')+'</div>';
+      });
+      h+='</div>'; card.innerHTML=h; host.appendChild(card);
+    });
+  }
+  function jumpToTable(name){ var el=document.getElementById(tblId(name)); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+
+  function buildERAccess(id){
+    var DM=dmStores()[id], host=document.getElementById('erAccess'); host.innerHTML='';
+    var qs=DM.queries||[];
+    if(!qs.length){ host.innerHTML='<div class="er-empty">No join / retrieval patterns recorded yet. Add them with <code>/codeviz-datamodel</code> at higher granularity.</div>'; return; }
+    qs.forEach(function(q){
+      var chain=(q.tables||[]).map(function(t){return '<span class="er-chip" data-jump="'+erEsc(t)+'">'+erEsc(t)+'</span>';}).join('<span class="er-join">&#8904;</span>');
+      var via=(q.via&&NODES[q.via])?'<span class="er-via">via '+erEsc(NODES[q.via].label)+'</span>':'';
+      var h='<div class="er-q"><div class="er-qh"><b>'+erEsc(q.name)+'</b>'+via+'</div>';
+      if(chain) h+='<div class="er-chain">'+chain+'</div>';
+      if(q.about) h+='<div class="er-qabout">'+erEsc(q.about)+'</div>';
+      if(q.sql) h+='<pre class="er-sql">'+erEsc(q.sql)+'</pre>';
+      h+='</div>';
+      var w=document.createElement('div'); w.innerHTML=h; host.appendChild(w.firstChild);
+    });
+  }
+
+  function setERTab(t){
+    var tabs=document.getElementById('erTabs');
+    Array.prototype.forEach.call(tabs.children,function(b){ b.classList.toggle('on', b.dataset.t===t); });
+    var sch=(t==='schema');
+    document.getElementById('erTables').hidden=!sch;
+    document.getElementById('erLinks').style.display=sch?'':'none';
+    document.getElementById('erAccess').hidden=sch;
+    if(sch) requestAnimationFrame(drawERLinks);
+  }
+
+  function drawERLinks(){
+    var svg=document.getElementById('erLinks'); if(!svg||erOpen==null) return;
+    var scroll=document.getElementById('erScroll'); if(!scroll||document.getElementById('erTables').hidden) return;
+    var base=scroll.getBoundingClientRect();
+    var W=scroll.scrollWidth, H=scroll.scrollHeight;
+    svg.setAttribute('width',W); svg.setAttribute('height',H); svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    var rels=[];
+    Array.prototype.forEach.call(document.querySelectorAll('#erTables .er-col.has-fk'),function(row){
+      var fk=row.dataset.fk, tt=fk.split('.').slice(0,-1).join('.'), tgt=document.getElementById(tblId(tt)); if(!tgt) return;
+      var th=tgt.querySelector('.er-th')||tgt;
+      var r1=row.getBoundingClientRect(), r2=th.getBoundingClientRect();
+      var sx=scroll.scrollLeft, sy=scroll.scrollTop;
+      var y1=r1.top+r1.height/2-base.top+sy, y2=r2.top+r2.height/2-base.top+sy;
+      var x1, x2, leftExit=(r2.left+r2.width/2)<(r1.left+r1.width/2);
+      if(leftExit){ x1=r1.left-base.left+sx; x2=r2.right-base.left+sx; } else { x1=r1.right-base.left+sx; x2=r2.left-base.left+sx; }
+      var col=(getComputedStyle(tgt).getPropertyValue('--tc')||'').trim()||COL.edge;
+      rels.push({x1:x1,y1:y1,x2:x2,y2:y2,col:col});
+    });
+    var paths=rels.map(function(r){
+      var dx=Math.max(28,Math.abs(r.x2-r.x1)*0.45);
+      var c1=r.x1+(r.x2>=r.x1?dx:-dx), c2=r.x2+(r.x2>=r.x1?-dx:dx);
+      return '<path d="M'+r.x1+' '+r.y1+' C '+c1+' '+r.y1+' '+c2+' '+r.y2+' '+r.x2+' '+r.y2+'" fill="none" stroke="'+r.col+'" stroke-width="1.6" opacity="0.85" marker-end="url(#erArrow)"/>'+
+        '<circle cx="'+r.x1+'" cy="'+r.y1+'" r="2.6" fill="'+r.col+'"/>';
+    }).join('');
+    svg.innerHTML='<defs><marker id="erArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>'+paths;
+  }
+
+  // wiring
+  document.getElementById('erClose').addEventListener('click', closeDataModel);
+  document.getElementById('erScrim').addEventListener('click', closeDataModel);
+  document.getElementById('erTabs').addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) setERTab(b.dataset.t); });
+  document.getElementById('erTables').addEventListener('click', function(e){ var row=e.target.closest('.er-col.has-fk'); if(!row) return; var fk=row.dataset.fk; jumpToTable(fk.split('.').slice(0,-1).join('.')); });
+  document.getElementById('erAccess').addEventListener('click', function(e){ var c=e.target.closest('[data-jump]'); if(!c) return; setERTab('schema'); jumpToTable(c.dataset.jump); });
+  (function(){ var raf=0; document.getElementById('erScroll').addEventListener('scroll', function(){ if(raf) return; raf=requestAnimationFrame(function(){ raf=0; drawERLinks(); }); }); })();
+  window.addEventListener('resize', function(){ if(erOpen!=null) drawERLinks(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && erOpen!=null){ e.preventDefault(); closeDataModel(); } });
 
   /* ---------- pointer events ---------- */
   var dragging=false, moved=false, mmDrag=false, last={x:0,y:0};
@@ -800,7 +1059,7 @@
     if(moved) return; var r=cv.getBoundingClientRect();
     if(mmHit(ev.clientX-r.left, ev.clientY-r.top)) return;
     var w=screenToWorld(ev.clientX-r.left,ev.clientY-r.top);
-    if(curSvc()>0.5){ var nid=nodeAt(w.x,w.y); if(nid){ if(tour.on) exitTour(); setFocus(nid); } else setFocus(null); }
+    if(curSvc()>0.5){ var nid=nodeAt(w.x,w.y); if(nid){ if(tour.on) exitTour(); setFocus(nid); if(isStore(nid)) openDataModel(nid); } else setFocus(null); }
     else { var did=domainAt(w.x,w.y); if(did){ flyToDomain(did); } }
   });
   cv.addEventListener('wheel',function(ev){ ev.preventDefault();
@@ -966,6 +1225,8 @@
     setHealthScen:setHealthScen, get healthScen(){return healthScen&&healthScen.id;}, HEALTH_SCENARIOS:(typeof HEALTH_SCENARIOS!=='undefined'?HEALTH_SCENARIOS:[]),
     contentScreen:function(){ if(!tourContentHit)return null; return worldToScreen(tourContentHit.x+tourContentHit.w/2, tourContentHit.y+tourContentHit.h/2); },
     lineScreen:function(){ if(!trace)return null; var a=center(NODES[trace.from]),b=center(NODES[trace.to]),c=bundle(a.x,a.y,b.x,b.y,0),p=cpt(a.x,a.y,c,b.x,b.y,0.8); return worldToScreen(p.x,p.y); },
+    openDataModel:openDataModel, closeDataModel:closeDataModel, get dataOpen(){return erOpen;}, isStore:isStore,
+    DATAMODEL:(typeof DATAMODEL!=='undefined'?DATAMODEL:{}),
     NODES:NODES, EDGES:EDGES, DOMAINS:DOMAINS, COL:COL, snap:function(){ camT={z:cam.z,x:cam.x,y:cam.y}; } };
 })();
 </script>

@@ -1,13 +1,13 @@
 # codeviz system-map — data spec, use cases & edge cases
 
-Reference for filling the five `@@REPLACE@@` blocks in `assets/system-map.template.html`
+Reference for filling the `@@REPLACE@@` blocks in `assets/system-map.template.html`
 (the semantic-zoom atlas engine). Tables below are **TOON** (Token-Oriented Object Notation):
 the header `name[rows]{col1,col2,…}:` declares columns once, then each indented line is one
 comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[27]{object,field,req,shape,note}:
+fields[42]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
@@ -33,13 +33,28 @@ fields[27]{object,field,req,shape,note}:
   step,replyText,no,string,narration for the return leg
   step,replyDetail,no,html,why the response is what it is
   step,oneway,no,bool,fire-and-forget; no response leg in the tour
+  DATAMODEL,key = nodeId,no,store,keyed by a datastore NODES id; clicking that node opens its ER drill-in
+  DATAMODEL,engine/about,no,string,e.g. Postgres/Redis + one-line purpose
+  DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; shown in the footer
+  DATAMODEL,tables,no,table[],entities/collections (see table fields)
+  DATAMODEL,queries,no,query[],join/retrieval paths (see query fields)
+  table,name/about/status,yes,string,entity name (schema.table ok); status: built|partial|planned
+  table,cols,yes,col[],columns/fields
+  col,name/type,yes,string,column name + type (nullable renders as type?)
+  col,pk/nullable,no,bool,primary key / NULL allowed
+  col,fk,no,'table.col',foreign key → draws a connector to that table
+  col,note,no,string,constraint / meaning (shown on hover)
+  query,name/about,yes,string,what the read does (one line)
+  query,via,no,nodeId,which service issues it
+  query,tables,yes,string[],join chain (shown as table ⋈ table)
+  query,sql,no,string,illustrative SQL; \n for line breaks
   HEALTH_SCEN,id/label/source,no,string,a health snapshot; source: modeled|observed
   HEALTH_SCEN,base/states,no,'up'/{id:{state,p99,err,note}},base resets all healthy; states override per node
 ```
 
 ## Use cases — how to model common architectures
 ```toon
-usecases[10]{case,model}:
+usecases[11]{case,model}:
   Monolith + DB,clients→api→data; one api node; flows: read (api→cache→db) + write (api→db)
   Microservices,many nodes in the services layer; one gateway; edges service→service; group by domain not raw tier
   Event-driven/queue,dash edges for events; a workers layer; scenario shows producer→queue→consumer fan-out
@@ -50,11 +65,12 @@ usecases[10]{case,model}:
   Replicated DB,primary + replicas as separate data nodes; dash edges for replication; reads hit replicas
   CDN/media,thick edge client/api→CDN/storage bypassing the API; bulk chunks read instantly
   Auth/identity,auth service mints tokens; other services trust them; a call back through the gateway is a back-edge
+  Data model / ER,add DATAMODEL[storeId] with tables[].cols (pk/fk) + queries[]; clicking a datastore node opens its ER diagram + joins; tune depth with grain
 ```
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[27]{case,handling}:
+edgecases[31]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -82,6 +98,10 @@ edgecases[27]{case,handling}:
   health overlay,Structure|Health toggle recolours nodes/edges by health; ILLUSTRATIVE only (badged modeled-not-observed). Set NODES[].health or a node defaults healthy. Never implies live metrics
   health scenarios,HEALTH_SCENARIOS = named snapshots the reader switches between in Health mode (sample / all-healthy / cascade). base:up resets all; states override per node
   real (observed) health,/codeviz-health snapshots Docker (state/uptime/restarts/healthchecks) into a source:observed HEALTH_SCENARIOS entry; point-in-time not continuous; never fabricates metrics
+  datastore data model,DATAMODEL[nodeId] (a datastore id) → clicking that node opens an ER drill-in: tables/keys + a Joins & retrieval tab. FK cols draw connectors; no block = the node just focuses
+  fk to another store,a col fk pointing at a table in a different store shows as an FK badge with no connector (the target card lives in the other store) — say so in the col note
+  non-relational store,model KV/doc stores as tables too (key pattern as the entity); set grain:overview; queries can describe access without sql
+  data-model granularity,grain overview|standard|full sets depth; use the /codeviz-datamodel meta-prompts. Modeled from the schema source — verify vs live; never fabricate columns
 ```
 
 ## Invariants (validate before delivering)

@@ -35,6 +35,20 @@ codeviz is **granular** — each output is opt-in, because a full run on a large
 
 Adds **one** level of code-grounded explanation (read from the real source, cited `file:line`) to a step of an existing map. It counts your digs in `docs/onboarding/.codeviz-dig.json` and **hard-stops after 5** — past that it points you at the files to read instead, so curiosity can't quietly run up a token bill. ~8–20k per dig.
 
+## Click into the data model
+
+![Data model drill-in — tables, keys, and foreign-key connectors, with a joins & retrieval view](examples/clips/codeviz-datamodel.png)
+
+Click any **datastore** node and the map drills into its data: an **ER diagram** (tables, PK/FK badges, types, nullability) with foreign keys drawn as **connectors**, plus a **Joins & retrieval** tab showing how the data is really queried — join chains, the issuing service, and illustrative SQL.
+
+```
+/codeviz-datamodel              # standard depth, every datastore
+/codeviz-datamodel overview     # entities + relationships only
+/codeviz-datamodel full         # every column, constraint, index, per-service access
+```
+
+It reads your **real** schema (SQL / migrations / ORM models / NoSQL samples) and writes a `DATAMODEL` block keyed by node id. Granularity is a dial — the skill ships **meta-prompts** so you can turn detail up or down without re-explaining the task. Grounded only: it never invents tables, marks unbuilt ones `planned`, and badges the panel *"modeled from the schema source — verify against your live database."*
+
 ## Record a clip
 
 ![Guided tour of a codeviz map — a live request walked end to end](examples/clips/codeviz-tour.gif)

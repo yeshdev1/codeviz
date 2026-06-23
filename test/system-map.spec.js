@@ -17,6 +17,7 @@ const REQUIRED_IDS = [
   'cv', 'levels', 'zin', 'zout', 'fit', 'tourBtn', 'layerKey', 'focusbar', 'focusClear',
   'narr', 'narrHead', 'narrText', 'narrDetail', 'narrJargon',
   'tPrev', 'tPlay', 'tNext', 'tExit', 'tCount', 'scenpick', 'tip',
+  'erPanel', 'erScrim', 'erTabs', 'erClose', 'erScroll', 'erLinks', 'erTables', 'erAccess', 'erName', 'erEngine', 'erFoot',
 ];
 
 // Read the canvas back and decide whether anything was actually painted.
@@ -85,4 +86,23 @@ test('the guided tour runs, teaches each step, and Next advances', async ({ page
   await expect(page.locator('#tCount')).toContainText('2 /');
   await page.click('#tExit');
   await expect(page.locator('#narr')).toBeHidden();
+});
+
+test('clicking a datastore opens its data model (ER diagram + joins)', async ({ page }) => {
+  await page.goto(DEMO);
+  await page.waitForFunction(() => !!window.__atlas);
+  // a datastore node carries a DATAMODEL entry; a non-store does not
+  expect(await page.evaluate(() => window.__atlas.isStore('pg'))).toBe(true);
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
+  await expect(page.locator('#erPanel')).toBeVisible();
+  // tables render with at least one FK connector drawn
+  expect(await page.locator('#erTables .er-table').count()).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => page.locator('#erLinks path').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(3);
+  // the Joins & retrieval tab lists access patterns
+  await page.click('#erTabs button[data-t="access"]');
+  expect(await page.locator('#erAccess .er-q').count()).toBeGreaterThanOrEqual(1);
+  // Escape closes it
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#erPanel')).toBeHidden();
+  expect(await page.evaluate(() => window.__atlas.dataOpen)).toBe(null);
 });

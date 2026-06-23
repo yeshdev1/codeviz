@@ -37,6 +37,7 @@ node <skill>/assets/capture.js --map docs/onboarding/system-map.html --scene tou
 - **health** — toggles to Health, then clicks affected systems in the summary to fly to them.
 - **zoom** — semantic zoom: continents → services → detail.
 - **focus** — clicks a system and lets the degree-of-interest camera fly in.
+- **datamodel** — opens a datastore's data model, then flips to its Joins & retrieval view.
 - **overview** — a gentle pass across all three zoom levels.
 
 Pick the scene that matches the story; `health` and `tour` make the strongest social clips. Report the output path(s) and remind the user MP4 is best for LinkedIn/GitHub, GIF for inline autoplay.

@@ -3,7 +3,7 @@
 // Usage:
 //   node capture.js --map docs/onboarding/system-map.html --scene health --gif
 //   node capture.js --scene tour --speed 2 --secs 5 --caption "Guided tour: a live request"
-// Scenes: tour | health | zoom | focus | overview   (drives the map via its window.__atlas hook)
+// Scenes: tour | health | zoom | focus | datamodel | overview   (drives the map via its window.__atlas hook)
 // Output: an MP4 (and optional GIF) via ffmpeg; falls back to .webm if ffmpeg is missing.
 // Tighten/brand: --speed <x> time-compresses, --secs <n> hard-trims to ~n s, --caption "<text>"
 //   burns a lower-third caption into both MP4 and GIF.
@@ -53,6 +53,13 @@ const SCENES = {
   async tour(p){ await p.waitForTimeout(600); await p.evaluate(()=>window.__atlas.startTour(0)); await p.waitForTimeout(2200);
     for(let i=0;i<3;i++){ await p.evaluate(()=>window.__atlas.next && window.__atlas.next()); await p.waitForTimeout(2200); }
     await p.evaluate(()=>window.__atlas.exitTour()); await p.waitForTimeout(700); },
+  // open a datastore's data model, then flip to its joins & retrieval view
+  async datamodel(p){ await drive(p,'goLevel','services'); await p.waitForTimeout(1100);
+    const id = await p.evaluate(()=>{ var dm=window.__atlas.DATAMODEL||{}; return Object.keys(dm)[0]||null; });
+    if(!id){ await p.waitForTimeout(800); return; }
+    await p.evaluate((i)=>window.__atlas.openDataModel(i), id); await p.waitForTimeout(2400);
+    await p.click('#erTabs button[data-t="access"]').catch(()=>{}); await p.waitForTimeout(2200);
+    await p.click('#erTabs button[data-t="schema"]').catch(()=>{}); await p.waitForTimeout(1200); },
   // toggle Health, then click affected systems in the summary to fly to them
   async health(p){ await drive(p,'goLevel','services'); await p.waitForTimeout(1100);
     await p.click('#viewmode button[data-v="health"]').catch(()=>{}); await p.waitForTimeout(1700);
