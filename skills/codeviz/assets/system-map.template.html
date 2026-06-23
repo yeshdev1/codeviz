@@ -123,6 +123,8 @@
   .er-tabs button.on{background:var(--card);color:var(--ink)}
   .er-close{appearance:none;background:transparent;border:1px solid var(--line);color:var(--sub);width:30px;height:30px;border-radius:8px;font-size:18px;line-height:1;cursor:pointer;flex:none}
   .er-close:hover{color:var(--ink)}
+  .er-about{padding:9px 16px;border-bottom:1px solid var(--line);color:var(--sub);font-size:12px;line-height:1.45}
+  .er-about[hidden]{display:none}
   .er-scroll{position:relative;flex:1;overflow:auto;padding:18px}
   .er-links{position:absolute;left:0;top:0;pointer-events:none;z-index:0;overflow:visible}
   .er-tables{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:16px;align-content:flex-start}
@@ -153,6 +155,8 @@
   .er-chain{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:8px 0}
   .er-chip{background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--ink);cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .er-chip:hover{border-color:var(--accent);color:var(--accent)}
+  .er-chip.ext{cursor:default;opacity:.7}
+  .er-chip.ext:hover{border-color:var(--line);color:var(--ink)}
   .er-join{color:var(--accent);font-weight:800;margin:0 2px}
   .er-qabout{color:var(--sub);font-size:12px;line-height:1.5;margin-top:2px}
   .er-sql{margin:9px 0 0;background:#0e0e0e;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:#bfe3d2;font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto;white-space:pre-wrap}
@@ -248,6 +252,7 @@
     </div>
     <button class="er-close" id="erClose" aria-label="Close data model">×</button>
   </div>
+  <div class="er-about" id="erAbout" hidden></div>
   <div class="er-scroll" id="erScroll">
     <svg class="er-links" id="erLinks" aria-hidden="true"></svg>
     <div class="er-tables" id="erTables"></div>
@@ -400,11 +405,6 @@
         queue:{state:'degraded', p99:420, err:0.04, note:'jobs backing up'} } }
   ];
 
-  // @@ REPLACE: DATA MODEL — per-datastore schema. Keyed by a NODES id that is a datastore
-  // (db, cache, object store…). Clicking that node opens its ER diagram + join/retrieval view.
-  // tables[]: {name, about?, status?, cols[]} where a col is {name,type,pk?,fk?'table.col',nullable?,note?}.
-  // queries[]: notable join/retrieval paths — {name, via?(a NODES id), tables[], about?, sql?}.
-  // grain = how deep this was modelled (overview|standard|full); shown in the footer.
   // @@ REPLACE: DATA MODEL — per-datastore schema. Keyed by a NODES id that is a datastore
   // (db / cache / object store…). Clicking that node opens its ER diagram + join/retrieval view.
   // tables[]: {name, about?, status?, cols[]} where a col is {name,type,pk?,fk?'table.col',nullable?,note?}.
@@ -910,15 +910,21 @@
   /* ---------- data-model drill-in (ER diagram + joins/retrieval) ---------- */
   var erOpen=null;
   var ERPAL=['#7aa2f7','#3ecf8e','#bb9af7','#f7768e','#7dcfff','#e0af68'];
+  var erIdOf={};   // table name -> the DOM id of its (first) card in the current store, for FK targeting
   function dmStores(){ return (typeof DATAMODEL!=='undefined')?DATAMODEL:{}; }
   function isStore(id){ return !!dmStores()[id]; }
   function erEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':'&quot;';}); }
-  function tblId(name){ return 'ert-'+name.replace(/[^a-zA-Z0-9]/g,'_'); }
-  // colour a table by an explicit domain, else by its schema prefix (auth./public./storage.)
+  function tblId(name){ return 'ert-'+String(name==null?'':name).replace(/[^a-zA-Z0-9]/g,'_'); }
+  function fkTarget(fk){ return String(fk==null?'':fk).split('.').slice(0,-1).join('.'); }
+  // ONLY a strict colour token may reach a style/SVG sink. CSS custom properties are not
+  // type-checked and round-trip arbitrary text verbatim, so an authored table.accent carrying
+  // markup could otherwise launder through --tc into svg.innerHTML — this is the XSS boundary.
+  function erColor(c){ c=String(c==null?'':c).trim(); return /^#[0-9a-fA-F]{3,8}$|^rgba?\([\d.,\s%]+\)$/.test(c)?c:COL.edge; }
+  // colour a table by an explicit (hex-validated) accent, else its domain, else a schema-prefix hash
   function tableColor(t,storeId){
-    if(t.accent) return t.accent;
+    if(t.accent && /^#[0-9a-fA-F]{3,8}$/.test(t.accent)) return t.accent;
     if(t.domain && DOM[t.domain]) return DOM[t.domain].col;
-    var p=t.name.indexOf('.')>=0?t.name.split('.')[0]:'_', h=0;
+    var nm=String(t.name==null?'':t.name), p=nm.indexOf('.')>=0?nm.split('.')[0]:'_', h=0;
     for(var i=0;i<p.length;i++) h=(h*31+p.charCodeAt(i))>>>0;
     return ERPAL[h%ERPAL.length];
   }
@@ -926,13 +932,17 @@
 
   function openDataModel(id){
     var DM=dmStores()[id]; if(!DM) return;
+    // build first; if authored data is malformed, fail closed rather than leaving a half-open panel
+    try { buildERSchema(id); buildERAccess(id); }
+    catch(err){ erOpen=null; if(window.console&&console.error) console.error('codeviz: data model render failed', err); return; }
     erOpen=id;
     document.getElementById('erName').textContent=(NODES[id]?NODES[id].label:id)+' · data model';
     document.getElementById('erEngine').textContent=DM.engine||'';
-    buildERSchema(id); buildERAccess(id);
+    var ab=document.getElementById('erAbout'); ab.textContent=DM.about||''; ab.hidden=!DM.about;
     var t=(DM.tables||[]).length, r=relCount(DM);
     document.getElementById('erFoot').innerHTML='<b>'+t+'</b> '+(t===1?'entity':'entities')+' · <b>'+r+'</b> relationship'+(r===1?'':'s')+(DM.grain?' · detail: <b>'+erEsc(DM.grain)+'</b>':'')+'<span style="margin-left:auto;opacity:.85">Modeled from the schema source — verify against your live database.</span>';
     setERTab('schema');
+    var sc=document.getElementById('erScroll'); sc.scrollTop=0; sc.scrollLeft=0;
     document.getElementById('erScrim').hidden=false;
     document.getElementById('erPanel').hidden=false;
     requestAnimationFrame(function(){ requestAnimationFrame(drawERLinks); });
@@ -942,30 +952,34 @@
   function closeDataModel(){ if(erOpen==null) return; erOpen=null; document.getElementById('erPanel').hidden=true; document.getElementById('erScrim').hidden=true; if(cv&&cv.focus) cv.focus(); }
 
   function buildERSchema(id){
-    var DM=dmStores()[id], host=document.getElementById('erTables'); host.innerHTML='';
-    (DM.tables||[]).forEach(function(t){
-      var card=document.createElement('div'); card.className='er-table'; card.id=tblId(t.name);
+    var DM=dmStores()[id], host=document.getElementById('erTables'); host.innerHTML=''; erIdOf={};
+    var tables=DM.tables||[];
+    var ids=tables.map(function(t,i){ return tblId(t.name)+'-'+i; });            // guaranteed-unique DOM ids
+    tables.forEach(function(t,i){ if(!(t.name in erIdOf)) erIdOf[t.name]=ids[i]; }); // first card per name = FK target
+    tables.forEach(function(t,i){
+      var card=document.createElement('div'); card.className='er-table'; card.id=ids[i];
       card.style.setProperty('--tc', tableColor(t,id));
       var h='<div class="er-th"><span class="er-tname">'+erEsc(t.name)+'</span>'+((t.status&&t.status!=='built')?'<span class="er-tag">'+erEsc(t.status)+'</span>':'')+'</div>';
       if(t.about) h+='<div class="er-tabout">'+erEsc(t.about)+'</div>';
       h+='<div class="er-cols">';
       (t.cols||[]).forEach(function(c){
+        var here=!!c.fk && (fkTarget(c.fk) in erIdOf);   // FK target rendered in THIS store? only then is it clickable
         var key=c.pk?'<span class="er-k pk" title="primary key">PK</span>':(c.fk?'<span class="er-k fk" title="foreign key → '+erEsc(c.fk)+'">FK</span>':'<span class="er-k"></span>');
-        h+='<div class="er-col'+(c.fk?' has-fk':'')+'" data-col="'+erEsc(t.name+'.'+c.name)+'"'+(c.fk?' data-fk="'+erEsc(c.fk)+'"':'')+'>'+key+
+        h+='<div class="er-col'+(here?' has-fk':'')+'" data-col="'+erEsc(t.name+'.'+c.name)+'"'+(here?' data-fk="'+erEsc(c.fk)+'"':'')+'>'+key+
           '<span class="er-cn">'+erEsc(c.name)+'</span><span class="er-ct">'+erEsc(c.type||'')+(c.nullable?'?':'')+'</span>'+
           (c.note?'<span class="er-cnote" title="'+erEsc(c.note)+'">&#9432;</span>':'')+'</div>';
       });
       h+='</div>'; card.innerHTML=h; host.appendChild(card);
     });
   }
-  function jumpToTable(name){ var el=document.getElementById(tblId(name)); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  function jumpToTable(name){ var el=document.getElementById(erIdOf[name]); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 
   function buildERAccess(id){
     var DM=dmStores()[id], host=document.getElementById('erAccess'); host.innerHTML='';
     var qs=DM.queries||[];
     if(!qs.length){ host.innerHTML='<div class="er-empty">No join / retrieval patterns recorded yet. Add them with <code>/codeviz-datamodel</code> at higher granularity.</div>'; return; }
     qs.forEach(function(q){
-      var chain=(q.tables||[]).map(function(t){return '<span class="er-chip" data-jump="'+erEsc(t)+'">'+erEsc(t)+'</span>';}).join('<span class="er-join">&#8904;</span>');
+      var chain=(q.tables||[]).map(function(t){ var has=(t in erIdOf); return '<span class="er-chip'+(has?'':' ext')+'"'+(has?' data-jump="'+erEsc(t)+'"':'')+'>'+erEsc(t)+'</span>'; }).join('<span class="er-join">&#8904;</span>');
       var via=(q.via&&NODES[q.via])?'<span class="er-via">via '+erEsc(NODES[q.via].label)+'</span>':'';
       var h='<div class="er-q"><div class="er-qh"><b>'+erEsc(q.name)+'</b>'+via+'</div>';
       if(chain) h+='<div class="er-chain">'+chain+'</div>';
@@ -994,34 +1008,56 @@
     svg.setAttribute('width',W); svg.setAttribute('height',H); svg.setAttribute('viewBox','0 0 '+W+' '+H);
     var rels=[];
     Array.prototype.forEach.call(document.querySelectorAll('#erTables .er-col.has-fk'),function(row){
-      var fk=row.dataset.fk, tt=fk.split('.').slice(0,-1).join('.'), tgt=document.getElementById(tblId(tt)); if(!tgt) return;
+      var tgt=document.getElementById(erIdOf[fkTarget(row.dataset.fk)]); if(!tgt) return;
       var th=tgt.querySelector('.er-th')||tgt;
       var r1=row.getBoundingClientRect(), r2=th.getBoundingClientRect();
       var sx=scroll.scrollLeft, sy=scroll.scrollTop;
       var y1=r1.top+r1.height/2-base.top+sy, y2=r2.top+r2.height/2-base.top+sy;
       var x1, x2, leftExit=(r2.left+r2.width/2)<(r1.left+r1.width/2);
       if(leftExit){ x1=r1.left-base.left+sx; x2=r2.right-base.left+sx; } else { x1=r1.right-base.left+sx; x2=r2.left-base.left+sx; }
-      var col=(getComputedStyle(tgt).getPropertyValue('--tc')||'').trim()||COL.edge;
-      rels.push({x1:x1,y1:y1,x2:x2,y2:y2,col:col});
+      rels.push({x1:x1,y1:y1,x2:x2,y2:y2,col:erColor(getComputedStyle(tgt).getPropertyValue('--tc'))});
     });
-    var paths=rels.map(function(r){
+    // build the SVG with the DOM API (createElementNS) — never via innerHTML — so no value is parsed as markup
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var NS='http://www.w3.org/2000/svg';
+    var defs=document.createElementNS(NS,'defs'), mk=document.createElementNS(NS,'marker');
+    mk.setAttribute('id','erArrow'); mk.setAttribute('viewBox','0 0 10 10'); mk.setAttribute('refX','8.5'); mk.setAttribute('refY','5');
+    mk.setAttribute('markerWidth','7'); mk.setAttribute('markerHeight','7'); mk.setAttribute('orient','auto-start-reverse');
+    var mp=document.createElementNS(NS,'path'); mp.setAttribute('d','M0 0 L10 5 L0 10 z'); mp.setAttribute('fill','context-stroke');
+    mk.appendChild(mp); defs.appendChild(mk); svg.appendChild(defs);
+    rels.forEach(function(r){
       var dx=Math.max(28,Math.abs(r.x2-r.x1)*0.45);
       var c1=r.x1+(r.x2>=r.x1?dx:-dx), c2=r.x2+(r.x2>=r.x1?-dx:dx);
-      return '<path d="M'+r.x1+' '+r.y1+' C '+c1+' '+r.y1+' '+c2+' '+r.y2+' '+r.x2+' '+r.y2+'" fill="none" stroke="'+r.col+'" stroke-width="1.6" opacity="0.85" marker-end="url(#erArrow)"/>'+
-        '<circle cx="'+r.x1+'" cy="'+r.y1+'" r="2.6" fill="'+r.col+'"/>';
-    }).join('');
-    svg.innerHTML='<defs><marker id="erArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"/></marker></defs>'+paths;
+      var pth=document.createElementNS(NS,'path');
+      pth.setAttribute('d','M'+r.x1+' '+r.y1+' C '+c1+' '+r.y1+' '+c2+' '+r.y2+' '+r.x2+' '+r.y2);
+      pth.setAttribute('fill','none'); pth.setAttribute('stroke',r.col); pth.setAttribute('stroke-width','1.6');
+      pth.setAttribute('opacity','0.85'); pth.setAttribute('marker-end','url(#erArrow)'); svg.appendChild(pth);
+      var dot=document.createElementNS(NS,'circle');
+      dot.setAttribute('cx',r.x1); dot.setAttribute('cy',r.y1); dot.setAttribute('r','2.6'); dot.setAttribute('fill',r.col); svg.appendChild(dot);
+    });
   }
 
   // wiring
   document.getElementById('erClose').addEventListener('click', closeDataModel);
   document.getElementById('erScrim').addEventListener('click', closeDataModel);
   document.getElementById('erTabs').addEventListener('click', function(e){ var b=e.target.closest('button'); if(b) setERTab(b.dataset.t); });
-  document.getElementById('erTables').addEventListener('click', function(e){ var row=e.target.closest('.er-col.has-fk'); if(!row) return; var fk=row.dataset.fk; jumpToTable(fk.split('.').slice(0,-1).join('.')); });
+  document.getElementById('erTables').addEventListener('click', function(e){ var row=e.target.closest('.er-col.has-fk'); if(!row) return; jumpToTable(fkTarget(row.dataset.fk)); });
   document.getElementById('erAccess').addEventListener('click', function(e){ var c=e.target.closest('[data-jump]'); if(!c) return; setERTab('schema'); jumpToTable(c.dataset.jump); });
   (function(){ var raf=0; document.getElementById('erScroll').addEventListener('scroll', function(){ if(raf) return; raf=requestAnimationFrame(function(){ raf=0; drawERLinks(); }); }); })();
   window.addEventListener('resize', function(){ if(erOpen!=null) drawERLinks(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && erOpen!=null){ e.preventDefault(); closeDataModel(); } });
+  // the panel is a modal dialog: trap Tab within it while open so focus can't reach the canvas behind
+  document.getElementById('erPanel').addEventListener('keydown', function(e){
+    if(e.key!=='Tab' || erOpen==null) return;
+    var f=Array.prototype.filter.call(this.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'),
+      function(el){ return !el.disabled && el.offsetParent!==null; });
+    if(!f.length) return;
+    var first=f[0], last=f[f.length-1], a=document.activeElement;
+    if(e.shiftKey && a===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && a===last){ e.preventDefault(); first.focus(); }
+    else if(f.indexOf(a)<0){ e.preventDefault(); first.focus(); }
+  });
+  // Escape closes the panel and ONLY the panel — own the key so the focus/tour Escape doesn't also fire
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && erOpen!=null){ e.preventDefault(); e.stopImmediatePropagation(); closeDataModel(); } });
 
   /* ---------- pointer events ---------- */
   var dragging=false, moved=false, mmDrag=false, last={x:0,y:0};
@@ -1196,6 +1232,7 @@
 
   /* keyboard: arrows pan, +/- zoom, Esc clears */
   cv.addEventListener('keydown',function(e){
+    if(erOpen!=null) return;   // the data-model panel owns the keyboard while open
     var pan=60;
     if(e.key==='ArrowLeft'){cam.x+=pan;camT.x=cam.x;e.preventDefault();}
     else if(e.key==='ArrowRight'){cam.x-=pan;camT.x=cam.x;e.preventDefault();}
@@ -1205,7 +1242,7 @@
     else if(e.key==='-'){zoomBtn(1/1.4);}
     else if(e.key==='Escape'){ if(tour.on) exitTour(); else setFocus(null); }
   });
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ if(tour.on) exitTour(); else if(focusId) setFocus(null); } });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ if(erOpen!=null) return; if(tour.on) exitTour(); else if(focusId) setFocus(null); } });
 
   /* ---------- boot ---------- */
   function boot(){

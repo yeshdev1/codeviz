@@ -7,7 +7,7 @@ comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[42]{object,field,req,shape,note}:
+fields[47]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
@@ -38,15 +38,20 @@ fields[42]{object,field,req,shape,note}:
   DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; shown in the footer
   DATAMODEL,tables,no,table[],entities/collections (see table fields)
   DATAMODEL,queries,no,query[],join/retrieval paths (see query fields)
-  table,name/about/status,yes,string,entity name (schema.table ok); status: built|partial|planned
+  table,name,yes,string,entity name; schema.table ok; unique within the store
+  table,about/status,no,string,one-line purpose; status: built|partial|planned
+  table,accent,no,hex,explicit card colour — MUST be #rgb/#rrggbb (else ignored)
+  table,domain,no,domainId,colour the card by an existing DOMAINS id; else a schema-prefix hash
   table,cols,yes,col[],columns/fields
-  col,name/type,yes,string,column name + type (nullable renders as type?)
+  col,name,yes,string,column name
+  col,type,no,string,data type (nullable renders as type?)
   col,pk/nullable,no,bool,primary key / NULL allowed
-  col,fk,no,'table.col',foreign key → draws a connector to that table
+  col,fk,no,'table.col',foreign key → connector if the target is in THIS store; else badge only
   col,note,no,string,constraint / meaning (shown on hover)
-  query,name/about,yes,string,what the read does (one line)
+  query,name,yes,string,what the read does (one line)
+  query,about,no,string,why / how the join works
   query,via,no,nodeId,which service issues it
-  query,tables,yes,string[],join chain (shown as table ⋈ table)
+  query,tables,yes,string[],join chain (shown as table ⋈ table); chips jump if the table is in this store
   query,sql,no,string,illustrative SQL; \n for line breaks
   HEALTH_SCEN,id/label/source,no,string,a health snapshot; source: modeled|observed
   HEALTH_SCEN,base/states,no,'up'/{id:{state,p99,err,note}},base resets all healthy; states override per node

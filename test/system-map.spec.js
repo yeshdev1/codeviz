@@ -17,7 +17,7 @@ const REQUIRED_IDS = [
   'cv', 'levels', 'zin', 'zout', 'fit', 'tourBtn', 'layerKey', 'focusbar', 'focusClear',
   'narr', 'narrHead', 'narrText', 'narrDetail', 'narrJargon',
   'tPrev', 'tPlay', 'tNext', 'tExit', 'tCount', 'scenpick', 'tip',
-  'erPanel', 'erScrim', 'erTabs', 'erClose', 'erScroll', 'erLinks', 'erTables', 'erAccess', 'erName', 'erEngine', 'erFoot',
+  'erPanel', 'erScrim', 'erTabs', 'erClose', 'erScroll', 'erLinks', 'erTables', 'erAccess', 'erName', 'erEngine', 'erAbout', 'erFoot',
 ];
 
 // Read the canvas back and decide whether anything was actually painted.
@@ -93,6 +93,7 @@ test('clicking a datastore opens its data model (ER diagram + joins)', async ({ 
   await page.waitForFunction(() => !!window.__atlas);
   // a datastore node carries a DATAMODEL entry; a non-store does not
   expect(await page.evaluate(() => window.__atlas.isStore('pg'))).toBe(true);
+  expect(await page.evaluate(() => window.__atlas.isStore('api'))).toBe(false);
   await page.evaluate(() => window.__atlas.openDataModel('pg'));
   await expect(page.locator('#erPanel')).toBeVisible();
   // tables render with at least one FK connector drawn
@@ -101,8 +102,92 @@ test('clicking a datastore opens its data model (ER diagram + joins)', async ({ 
   // the Joins & retrieval tab lists access patterns
   await page.click('#erTabs button[data-t="access"]');
   expect(await page.locator('#erAccess .er-q').count()).toBeGreaterThanOrEqual(1);
-  // Escape closes it
+  // Escape closes it — and must NOT also clear the underlying node focus
+  await page.evaluate(() => window.__atlas.setFocus('pg'));
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
   await page.keyboard.press('Escape');
   await expect(page.locator('#erPanel')).toBeHidden();
   expect(await page.evaluate(() => window.__atlas.dataOpen)).toBe(null);
+  expect(await page.evaluate(() => window.__atlas.focus)).toBe('pg'); // focus survived the panel's Escape
+});
+
+test('the data model closes via the × button and the backdrop too', async ({ page }) => {
+  await page.goto(DEMO);
+  await page.waitForFunction(() => !!window.__atlas);
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
+  await page.click('#erClose');
+  await expect(page.locator('#erPanel')).toBeHidden();
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
+  await page.click('#erScrim', { position: { x: 5, y: 5 } });
+  await expect(page.locator('#erPanel')).toBeHidden();
+  expect(await page.evaluate(() => window.__atlas.dataOpen)).toBe(null);
+});
+
+test('FK jump, store-swap, and empty-queries state', async ({ page }) => {
+  await page.goto(DEMO);
+  await page.waitForFunction(() => !!window.__atlas);
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
+  // clicking an FK column flashes its target table
+  await page.click('#erTables .er-col.has-fk');
+  await expect(page.locator('#erTables .er-table.flash')).toHaveCount(1);
+  // an access-tab chip jumps back to the schema view and flashes the target
+  await page.click('#erTabs button[data-t="access"]');
+  await page.click('#erAccess .er-chip[data-jump]');
+  await expect(page.locator('#erTables')).toBeVisible();
+  // re-opening a different store without closing swaps the content (no stale pg tables)
+  await page.evaluate(() => window.__atlas.openDataModel('redis'));
+  expect(await page.evaluate(() => window.__atlas.dataOpen)).toBe('redis');
+  const names = await page.locator('#erTables .er-tname').allTextContents();
+  expect(names.some((n) => n.includes('orders'))).toBe(false); // pg-only table is gone
+  // a store with no queries shows the empty state, not a stale list
+  await page.evaluate(() => {
+    window.__atlas.DATAMODEL.empt = { engine: 'X', tables: [{ name: 't', cols: [{ name: 'id', pk: true }] }], queries: [] };
+    window.__atlas.openDataModel('empt');
+  });
+  await page.click('#erTabs button[data-t="access"]');
+  await expect(page.locator('#erAccess .er-empty')).toBeVisible();
+  expect(await page.locator('#erAccess .er-q').count()).toBe(0);
+});
+
+test('hostile schema content cannot inject markup or script (XSS)', async ({ page }) => {
+  await page.goto(DEMO);
+  await page.waitForFunction(() => !!window.__atlas);
+  await page.evaluate(() => {
+    window.__atlas.DATAMODEL.evil = {
+      engine: 'PG',
+      about: '<img src=x onerror="window.__x_about=1">',
+      tables: [
+        // an FK TARGET carrying a non-hex accent — the original injection vector via the --tc CSS round-trip
+        { name: 'parent', accent: 'red"><image href=x onerror="window.__x_accent=1">', cols: [{ name: 'id', type: 'uuid', pk: true }] },
+        { name: '<img src=x onerror="window.__x_name=1">', cols: [{ name: 'a"<b', type: 'text' }, { name: 'ref', type: 'uuid', fk: 'parent.id' }] },
+      ],
+      queries: [{ name: 'q</pre><script>window.__x_q=1</script>', tables: ['parent'], sql: '<img src=x onerror="window.__x_sql=1">' }],
+    };
+    window.__atlas.openDataModel('evil');
+  });
+  await expect(page.locator('#erPanel')).toBeVisible();
+  await page.waitForTimeout(150); // let the connector rAF run
+  await page.click('#erTabs button[data-t="access"]');
+  // no authored string was ever parsed as markup, in any sink
+  expect(await page.locator('#erTables img, #erTables script').count()).toBe(0);
+  expect(await page.locator('#erLinks image, #erLinks script').count()).toBe(0);
+  expect(await page.locator('#erAccess img, #erAccess script').count()).toBe(0);
+  const flags = await page.evaluate(() => [window.__x_about, window.__x_accent, window.__x_name, window.__x_q, window.__x_sql]);
+  expect(flags.every((f) => f === undefined)).toBe(true);
+  // and the raw text is preserved verbatim (escaped, not stripped)
+  const tnames = await page.locator('#erTables .er-tname').allTextContents();
+  expect(tnames).toContain('<img src=x onerror="window.__x_name=1">');
+});
+
+test('connectors are redrawn after the panel scrolls', async ({ page }) => {
+  await page.goto(DEMO);
+  await page.waitForFunction(() => !!window.__atlas);
+  await page.evaluate(() => window.__atlas.openDataModel('pg'));
+  await expect.poll(() => page.locator('#erLinks path').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(3);
+  await page.evaluate(() => { const s = document.getElementById('erScroll'); s.scrollTop = s.scrollHeight; s.dispatchEvent(new Event('scroll')); });
+  await page.waitForTimeout(120);
+  // still drawn, and coordinates are finite (no NaN paths)
+  expect(await page.locator('#erLinks path').count()).toBeGreaterThanOrEqual(3);
+  const bad = await page.evaluate(() => Array.from(document.querySelectorAll('#erLinks path')).filter((p) => /NaN|undefined/.test(p.getAttribute('d') || '')).length);
+  expect(bad).toBe(0);
 });
