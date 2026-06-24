@@ -196,11 +196,17 @@ test('connectors are redrawn after the panel scrolls', async ({ page }) => {
 
 // --- companion pages (rendered by assets/render-pages.js) ---
 
-test('the data-model page renders full-page ER tables with FK connectors', async ({ page }) => {
+test('the data-model page: context, ER diagram with crow-foot cardinality, then explanation', async ({ page }) => {
   await page.goto(MODELS);
   await expect.poll(() => page.locator('.tbl').count()).toBeGreaterThanOrEqual(4);
+  // relationship lines drawn (path) + crow's-foot/bar cardinality marks (line segments)
   await expect.poll(() => page.locator('.er-svg path').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(2);
-  // top nav links back to the map and scenarios
+  expect(await page.locator('.er-svg line').count()).toBeGreaterThanOrEqual(4);
+  // the three stacked zones, in order: context above, comprehensive explanation below
+  expect(await page.locator('.store-context').count()).toBeGreaterThanOrEqual(1);
+  expect(await page.locator('.er-explain').count()).toBeGreaterThanOrEqual(1);
+  // the SQL "joins" section is gone
+  expect(await page.locator('.joins, .sql').count()).toBe(0);
   await expect(page.locator('.top nav a[href="system-map.html"]')).toHaveCount(1);
 });
 

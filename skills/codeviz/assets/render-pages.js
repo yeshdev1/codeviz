@@ -67,6 +67,24 @@ const tableColor = (t) => {
 const tid = (store, name) => 'er-' + store + '-' + name.replace(/[^a-zA-Z0-9]/g, '_');
 
 /* ============================ MODELS PAGE ============================ */
+// auto fallback: a plain-English relationship walkthrough derived from the FK graph
+function autoRelExplain(dm, names) {
+  const rels = [];
+  (dm.tables || []).forEach(t => (t.cols || []).forEach(c => {
+    if (c.fk) { const to = c.fk.split('.').slice(0, -1).join('.'); rels.push({ from: t.name, col: c.name, to, here: names.has(to), self: to === t.name }); }
+  }));
+  let h = `<p>Read this diagram like a map of how the records connect. Each <b>box is a table</b> — one kind of thing, stored as rows (think of a spreadsheet). <b>PK</b> marks the column that gives each row a unique identity; <b>FK</b> marks a column that <i>points at</i> another table's row. Every FK is drawn as a line that ends in a <b>crow's foot</b> (the “many” side) and a <b>single bar</b> (the “one” side): so <b>many</b> rows on the foot side belong to <b>one</b> row on the bar side.</p>`;
+  if (rels.length) {
+    h += `<p><b>The relationships here:</b></p><ul class="rel-list">`;
+    rels.forEach(r => {
+      if (r.self) h += `<li>A <b>${esc(r.from)}</b> can point at another <b>${esc(r.from)}</b> (a self-reference, via <code>${esc(r.from)}.${esc(r.col)}</code>) — e.g. a tree or hierarchy.</li>`;
+      else if (r.here) h += `<li>Many <b>${esc(r.from)}</b> rows belong to one <b>${esc(r.to)}</b> — via <code>${esc(r.from)}.${esc(r.col)}</code>. (So one <b>${esc(r.to)}</b> has many <b>${esc(r.from)}</b>.)</li>`;
+      else h += `<li>Each <b>${esc(r.from)}</b> references a <b>${esc(r.to)}</b> that lives in <i>another store</i> — via <code>${esc(r.from)}.${esc(r.col)}</code> (shown as an <span class="ext">ext</span> badge, no line drawn here).</li>`;
+    });
+    h += `</ul>`;
+  }
+  return h;
+}
 function modelsPage() {
   const css = `
   .ml{display:grid;grid-template-columns:212px 1fr;gap:0;align-items:start}
@@ -75,26 +93,32 @@ function modelsPage() {
   .ml .rail a.store{color:var(--ink);font-weight:700;margin-top:10px}
   .ml .rail a:hover{background:rgba(255,255,255,0.05);color:var(--ink)}
   .ml .body{padding:4px 4px 0 26px;min-width:0}
-  .store{margin-bottom:46px;scroll-margin-top:64px}
-  .store-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap} .store-h h2{font-weight:800;font-size:17px;margin:0}
-  .store-about{color:var(--sub);font-size:13px;line-height:1.6;max-width:860px;margin:7px 0 4px}
-  .store-meta{color:var(--sub);font-size:12px;margin-bottom:14px} .store-meta b{color:var(--ink)}
+  .store{margin-bottom:56px;scroll-margin-top:64px}
+  .store-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap} .store-h h2{font-weight:800;font-size:18px;margin:0}
+  .store-meta{color:var(--sub);font-size:12px} .store-meta b{color:var(--ink)}
+  /* 1 — context, above the diagram */
+  .store-context{color:#c9cebf;font-size:13.5px;line-height:1.7;max-width:880px;margin:9px 0 18px}
+  .store-context p{margin:0 0 10px} .store-context p:last-child{margin-bottom:0} .store-context b{color:var(--ink)} .store-context code{background:rgba(255,255,255,0.08);color:var(--accent2);padding:1px 6px;border-radius:5px}
+  /* 2 — the ER diagram */
+  .er-legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;color:var(--sub);font-size:11.5px;margin-bottom:12px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+  .er-legend b{color:var(--ink)} .er-legend .ky{font-size:8.5px;font-weight:800} .er-legend .ky.pk{color:var(--warn)} .er-legend .ky.fk{color:var(--req)}
+  .er-legend svg{vertical-align:middle}
   .er{position:relative} .er-svg{position:absolute;left:0;top:0;pointer-events:none;z-index:0;overflow:visible}
-  .er-grid{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:18px;align-content:flex-start}
+  .er-grid{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:20px;align-content:flex-start}
   .tbl{position:relative;width:256px;background:var(--card);border:1px solid var(--line);border-top:2px solid var(--tc,var(--accent));border-radius:11px;overflow:hidden;box-shadow:0 5px 20px rgba(0,0,0,.28);scroll-margin-top:70px}
   .tbl-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--line)} .tbl-h .nm{font-weight:800;font-size:13px}
   .tbl-about{padding:7px 12px;color:var(--sub);font-size:11px;line-height:1.45;border-bottom:1px solid var(--line)}
   .col{display:flex;align-items:center;gap:9px;padding:6px 12px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,0.05)} .col:last-child{border-bottom:0}
+  .col.is-fk{background:rgba(59,157,255,0.06)}
   .k{width:22px;flex:none;text-align:center;font-size:8.5px;font-weight:800;letter-spacing:.3px;color:var(--sub)} .k.pk{color:var(--warn)} .k.fk{color:var(--req)}
   .cn{font-weight:600} .ct{margin-left:auto;color:var(--sub);font-family:ui-monospace,Menlo,monospace;font-size:10.5px} .cnote{color:var(--sub);cursor:help;font-size:11px}
   .ext{font-size:9px;color:var(--sub);border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:6px}
-  .joins{margin-top:20px} .joins h3{font-size:13px;margin:0 0 10px}
-  .q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:12px;max-width:900px}
-  .q-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap} .q-h b{font-size:13.5px} .via{color:var(--sub);font-size:11px}
-  .chain{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:9px 0}
-  .chip{background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:11px;font-family:ui-monospace,Menlo,monospace} .chip.x{opacity:.6}
-  .join{color:var(--accent);font-weight:800;margin:0 2px} .q-about{color:var(--sub);font-size:12.5px;line-height:1.55}
-  .sql{margin:10px 0 0;background:#0e100c;border:1px solid var(--line);border-radius:8px;padding:11px 13px;color:var(--accent2);font:12px/1.55 ui-monospace,Menlo,monospace;overflow:auto;white-space:pre-wrap}
+  /* 3 — comprehensive explanation, below the diagram */
+  .er-explain{margin-top:24px;max-width:900px;color:#c9cebf;font-size:13.5px;line-height:1.72;border-top:1px solid var(--line);padding-top:18px}
+  .er-explain h3{font-size:14px;color:var(--ink);margin:0 0 10px}
+  .er-explain p{margin:0 0 12px} .er-explain b{color:var(--ink);font-weight:700} .er-explain i{color:var(--ink)}
+  .er-explain code{background:rgba(255,255,255,0.08);color:var(--accent2);padding:1px 6px;border-radius:5px;font-size:12px}
+  .er-explain ul,.rel-list{margin:6px 0 14px;padding-left:20px} .er-explain li{margin:5px 0}
   .note-foot{color:var(--sub);font-size:12px;border-top:1px solid var(--line);padding-top:14px;margin-top:8px}`;
   const stores = Object.keys(DATAMODEL);
   let rail = '<div class="rail">';
@@ -102,52 +126,51 @@ function modelsPage() {
     rail += `<a class="store" href="#store-${esc(sid)}">${esc(label)}</a>`;
     (dm.tables || []).forEach(t => rail += `<a href="#${tid(sid, t.name)}">${esc(t.name)}</a>`); });
   rail += '</div>';
-  let body = `<div class="body"><h1>Data models</h1><div class="lede">Every datastore behind ${esc(project)}, as an entity-relationship diagram. A <b>foreign key</b> (a column that points at another table) is drawn as a connector; a key whose target lives in <b>another</b> store shows as an <span class="ext">ext</span> badge. Below each schema, <b>joins &amp; retrieval</b> shows how the data is actually read across the system.</div>`;
+  // a tiny inline crow's-foot / bar key for the legend
+  const cfKey = `<svg width="34" height="14" viewBox="0 0 34 14"><line x1="6" y1="7" x2="28" y2="7" stroke="var(--sub)" stroke-width="1.4"/><line x1="6" y1="7" x2="0" y2="2" stroke="var(--sub)" stroke-width="1.4"/><line x1="6" y1="7" x2="0" y2="7" stroke="var(--sub)" stroke-width="1.4"/><line x1="6" y1="7" x2="0" y2="12" stroke="var(--sub)" stroke-width="1.4"/><line x1="28" y1="2" x2="28" y2="12" stroke="var(--sub)" stroke-width="1.4"/></svg>`;
+  let body = `<div class="body"><h1>Data models</h1><div class="lede">Every datastore behind ${esc(project)}, drawn as an <b>entity-relationship diagram</b>. For each store: first the <b>context</b> (what it holds and why), then the <b>ER diagram</b> itself — boxes are tables, lines are relationships — and then a <b>plain-English walkthrough</b> of how those tables connect, written for someone seeing the schema for the first time.</div>`;
   stores.forEach(sid => {
     const dm = DATAMODEL[sid], label = NODES[sid] ? NODES[sid].label : sid;
     let rel = 0; (dm.tables || []).forEach(t => (t.cols || []).forEach(c => { if (c.fk) rel++; }));
     const names = new Set((dm.tables || []).map(t => t.name));
-    body += `<section class="store" id="store-${esc(sid)}"><div class="store-h"><h2>${esc(label)}</h2><span class="pill">${esc(dm.engine || '')}</span></div>
-      ${dm.about ? `<div class="store-about">${esc(dm.about)}</div>` : ''}
-      <div class="store-meta"><b>${(dm.tables || []).length}</b> entities · <b>${rel}</b> relationships${dm.grain ? ` · detail: <b>${esc(dm.grain)}</b>` : ''}</div>
-      <div class="er"><svg class="er-svg" data-store="${esc(sid)}"></svg><div class="er-grid">`;
+    const context = dm.context || (dm.about ? `<p>${esc(dm.about)}</p>` : '');
+    body += `<section class="store" id="store-${esc(sid)}"><div class="store-h"><h2>${esc(label)}</h2><span class="pill">${esc(dm.engine || '')}</span><span class="store-meta"><b>${(dm.tables || []).length}</b> entities · <b>${rel}</b> relationships${dm.grain ? ` · detail: <b>${esc(dm.grain)}</b>` : ''}</span></div>`;
+    // 1 — context
+    if (context) body += `<div class="store-context">${context}</div>`;
+    // 2 — the ER diagram (with a how-to-read legend)
+    body += `<div class="er-legend"><span><b class="ky pk">PK</b> identity</span><span><b class="ky fk">FK</b> points at another table</span><span>${cfKey} <b>many → one</b></span><span><span class="ext">ext</span> in another store</span></div>`;
+    body += `<div class="er"><svg class="er-svg" data-store="${esc(sid)}"></svg><div class="er-grid">`;
     (dm.tables || []).forEach(t => {
       body += `<div class="tbl" id="${tid(sid, t.name)}" style="--tc:${tableColor(t)}"><div class="tbl-h"><span class="nm">${esc(t.name)}</span>${t.status && t.status !== 'built' ? `<span class="ext">${esc(t.status)}</span>` : ''}</div>${t.about ? `<div class="tbl-about">${esc(t.about)}</div>` : ''}`;
       (t.cols || []).forEach(c => {
         const here = c.fk && names.has(c.fk.split('.').slice(0, -1).join('.'));
         const k = c.pk ? '<span class="k pk" title="primary key">PK</span>' : (c.fk ? '<span class="k fk" title="foreign key → ' + esc(c.fk) + '">FK</span>' : '<span class="k"></span>');
-        body += `<div class="col"${here ? ` data-fk="${esc(c.fk)}"` : ''}>${k}<span class="cn">${esc(c.name)}</span><span class="ct">${esc(c.type || '')}${c.nullable ? '?' : ''}</span>${c.note ? `<span class="cnote" title="${esc(c.note)}">&#9432;</span>` : ''}${c.fk && !here ? '<span class="ext">ext</span>' : ''}</div>`;
+        body += `<div class="col${c.fk ? ' is-fk' : ''}"${here ? ` data-fk="${esc(c.fk)}"` : ''}>${k}<span class="cn">${esc(c.name)}</span><span class="ct">${esc(c.type || '')}${c.nullable ? '?' : ''}</span>${c.note ? `<span class="cnote" title="${esc(c.note)}">&#9432;</span>` : ''}${c.fk && !here ? '<span class="ext">ext</span>' : ''}</div>`;
       });
       body += '</div>';
     });
     body += '</div></div>';
-    if ((dm.queries || []).length) {
-      body += '<div class="joins"><h3>Joins &amp; retrieval</h3>';
-      dm.queries.forEach(q => {
-        const chain = (q.tables || []).map(t => `<span class="chip${names.has(t) ? '' : ' x'}">${esc(t)}</span>`).join('<span class="join">&#8904;</span>');
-        const via = q.via && NODES[q.via] ? `<span class="via">via ${esc(NODES[q.via].label)}</span>` : '';
-        body += `<div class="q"><div class="q-h"><b>${esc(q.name)}</b>${via}</div>${chain ? `<div class="chain">${chain}</div>` : ''}${q.about ? `<div class="q-about">${esc(q.about)}</div>` : ''}${q.sql ? `<pre class="sql">${esc(q.sql)}</pre>` : ''}</div>`;
-      });
-      body += '</div>';
-    }
+    // 3 — comprehensive explanation, below the diagram
+    body += `<div class="er-explain"><h3>How this data model works</h3>${dm.explain || autoRelExplain(dm, names)}</div>`;
     body += '</section>';
   });
   body += `<div class="note-foot">Modeled from the schema source — verify against your live database.</div></div>`;
   const script = `<script>
   function tid(s,n){return 'er-'+s+'-'+n.replace(/[^a-zA-Z0-9]/g,'_');}
+  function seg(svg,NS,x1,y1,x2,y2,col){var l=document.createElementNS(NS,'line');l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);l.setAttribute('stroke',col);l.setAttribute('stroke-width','1.5');svg.appendChild(l);}
   function draw(){document.querySelectorAll('.er-svg').forEach(function(svg){
     var store=svg.dataset.store,er=svg.closest('.er'),base=er.getBoundingClientRect();
     svg.setAttribute('width',er.scrollWidth);svg.setAttribute('height',er.scrollHeight);while(svg.firstChild)svg.removeChild(svg.firstChild);
-    var NS='http://www.w3.org/2000/svg',defs=document.createElementNS(NS,'defs'),mk=document.createElementNS(NS,'marker');
-    mk.setAttribute('id','ar-'+store);mk.setAttribute('viewBox','0 0 10 10');mk.setAttribute('refX','8.5');mk.setAttribute('refY','5');mk.setAttribute('markerWidth','7');mk.setAttribute('markerHeight','7');mk.setAttribute('orient','auto-start-reverse');
-    var mp=document.createElementNS(NS,'path');mp.setAttribute('d','M0 0 L10 5 L0 10 z');mp.setAttribute('fill','context-stroke');mk.appendChild(mp);defs.appendChild(mk);svg.appendChild(defs);
+    var NS='http://www.w3.org/2000/svg';
     er.querySelectorAll('.col[data-fk]').forEach(function(row){
       var fk=row.dataset.fk,t=fk.split('.').slice(0,-1).join('.'),tgt=document.getElementById(tid(store,t));if(!tgt)return;
       var th=tgt.querySelector('.tbl-h')||tgt,r1=row.getBoundingClientRect(),r2=th.getBoundingClientRect(),sx=er.scrollLeft,sy=er.scrollTop,y1=r1.top+r1.height/2-base.top+sy,y2=r2.top+r2.height/2-base.top+sy,x1,x2;
       var left=(r2.left+r2.width/2)<(r1.left+r1.width/2);if(left){x1=r1.left-base.left+sx;x2=r2.right-base.left+sx;}else{x1=r1.right-base.left+sx;x2=r2.left-base.left+sx;}
-      var col=(getComputedStyle(tgt).getPropertyValue('--tc')||'').trim()||'#888',dx=Math.max(34,Math.abs(x2-x1)*0.4),c1=x1+(x2>=x1?dx:-dx),c2=x2+(x2>=x1?-dx:dx);
-      var p=document.createElementNS(NS,'path');p.setAttribute('d','M'+x1+' '+y1+' C '+c1+' '+y1+' '+c2+' '+y2+' '+x2+' '+y2);p.setAttribute('fill','none');p.setAttribute('stroke',col);p.setAttribute('stroke-width','1.6');p.setAttribute('opacity','0.8');p.setAttribute('marker-end','url(#ar-'+store+')');svg.appendChild(p);
-      var dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',x1);dot.setAttribute('cy',y1);dot.setAttribute('r','2.6');dot.setAttribute('fill',col);svg.appendChild(dot);
+      var col=(getComputedStyle(tgt).getPropertyValue('--tc')||'').trim()||'#888',dir=x2>=x1?1:-1,dx=Math.max(34,Math.abs(x2-x1)*0.4),c1=x1+dir*dx,c2=x2-dir*dx;
+      var p=document.createElementNS(NS,'path');p.setAttribute('d','M'+x1+' '+y1+' C '+c1+' '+y1+' '+c2+' '+y2+' '+x2+' '+y2);p.setAttribute('fill','none');p.setAttribute('stroke',col);p.setAttribute('stroke-width','1.6');p.setAttribute('opacity','0.85');svg.appendChild(p);
+      // crow's foot (MANY) at the FK row; single bar (ONE) at the target
+      var ax=x1+dir*10; seg(svg,NS,ax,y1,x1,y1-5,col); seg(svg,NS,ax,y1,x1,y1,col); seg(svg,NS,ax,y1,x1,y1+5,col);
+      var bx=x2-dir*9; seg(svg,NS,bx,y2-6,bx,y2+6,col);
     });});}
   addEventListener('load',function(){draw();setTimeout(draw,60);});addEventListener('resize',draw);
   function flash(){var h=location.hash.slice(1);if(!h)return;var el=document.getElementById(h);if(el&&el.classList.contains('tbl')){el.style.transition='box-shadow .5s';el.style.boxShadow='0 0 0 2px var(--accent),0 8px 26px rgba(0,0,0,.5)';setTimeout(function(){el.style.boxShadow='';},1100);}}

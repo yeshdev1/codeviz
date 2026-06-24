@@ -7,7 +7,7 @@ comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[51]{object,field,req,shape,note}:
+fields[53]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
@@ -40,6 +40,8 @@ fields[51]{object,field,req,shape,note}:
   DATAMODEL,key = nodeId,no,store,keyed by a datastore NODES id; clicking that node opens its ER drill-in
   DATAMODEL,engine/about,no,string,e.g. Postgres/Redis + one-line purpose
   DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; shown in the footer
+  DATAMODEL,context,no,html,data-model.html: the intro ABOVE the ER diagram (what the store holds + why); falls back to about
+  DATAMODEL,explain,no,html,data-model.html: a comprehensive new-grad walkthrough BELOW the diagram (how the tables relate); auto-generated from the FKs if omitted
   DATAMODEL,tables,no,table[],entities/collections (see table fields)
   DATAMODEL,queries,no,query[],join/retrieval paths (see query fields)
   table,name,yes,string,entity name; schema.table ok; unique within the store
@@ -79,7 +81,7 @@ usecases[11]{case,model}:
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[33]{case,handling}:
+edgecases[34]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -98,7 +100,8 @@ edgecases[33]{case,handling}:
   duplicate node id,later silently overwrites earlier; ids must be unique
   domain colour clash,avoid amber/yellow/orange (reserved for status + latency); pick distinct hues
   no scenarios,the tour is empty; always provide ≥1 flow
-  companion pages,render-pages.js turns the map into data-model.html (full-page ER per store) + scenarios.html (collapsible, beginner walkthroughs); run it after writing system-map.html; it reads DATAMODEL + SCENARIOS and adds the top nav
+  companion pages,render-pages.js turns the map into data-model.html + scenarios.html (collapsible); run it after writing system-map.html; reads DATAMODEL + SCENARIOS, adds the top nav
+  data-model.html layout,per store: context (above) -> the ER diagram (tables + crow\u2019s-foot relationship lines, many->one) -> a comprehensive new-grad explanation (below). Author DATAMODEL context+explain; the queries field is no longer rendered there
   beginner scenarios,the scenarios page reads SCENARIOS intro + step lesson/callout/learn for entry-level explanations; if absent it falls back to text/detail/terms — write the beginner fields for a real onboarding page
   reduced-motion user,flow → static chevrons; comet freezes; narration must carry the meaning
   offline / file://,fully supported; no CDN or framework is loaded
