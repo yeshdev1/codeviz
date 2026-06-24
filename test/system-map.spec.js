@@ -9,10 +9,11 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const url = require('url');
+const fs = require('fs');
 
 const DEMO = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/system-map.html')).href;
 const MODELS = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/data-model.html')).href;
-const SCEN = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/scenarios.html')).href;
+const SCEN_PATH = path.resolve(__dirname, '../examples/demo/scenarios.html');
 
 // Elements the engine depends on — keep this in sync with the template.
 const REQUIRED_IDS = [
@@ -210,17 +211,80 @@ test('the data-model page: context, ER diagram with crow-foot cardinality, then 
   await expect(page.locator('.top nav a[href="system-map.html"]')).toHaveCount(1);
 });
 
-test('the scenarios page is collapsible, collapsed by default, with beginner content', async ({ page }) => {
-  await page.goto(SCEN);
-  expect(await page.locator('details.scen').count()).toBeGreaterThanOrEqual(1);
-  // collapsed by default
-  expect(await page.locator('details.scen[open]').count()).toBe(0);
-  // a tab opens its scenario
-  await page.locator('.sc-tabs a').first().click();
-  await expect(page.locator('details.scen[open]')).toHaveCount(1);
-  // entry-level content is present once open
-  expect(await page.locator('details.scen[open] .callout').count()).toBeGreaterThanOrEqual(1);
-  expect(await page.locator('details.scen[open] .why p').count()).toBeGreaterThanOrEqual(1);
-  // each step carries the whole-system schematic
-  expect(await page.locator('details.scen[open] svg.sch').count()).toBeGreaterThanOrEqual(1);
+test('the data-model page lays tables out by dependency and spotlights relationships', async ({ page }) => {
+  await page.goto(MODELS);
+  await expect.poll(() => page.locator('.er.ready').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(1);
+  // relationship-aware layout: tables get absolute positions in increasing columns (roots left → dependents right)
+  const xs = await page.locator('#store-pg .tbl').evaluateAll(els => els.map(e => Math.round(parseFloat(e.style.left || '0'))));
+  expect(new Set(xs).size).toBeGreaterThanOrEqual(3);            // at least 3 distinct columns
+  // the junction table (≥2 FKs) is auto-detected and sits in the rightmost column
+  await expect(page.locator('#er-pg-order_items .role.junction')).toHaveCount(1);
+  const maxX = Math.max(...xs);
+  const jx = Math.round(parseFloat(await page.locator('#er-pg-order_items').evaluate(e => e.style.left)));
+  expect(jx).toBe(maxX);
+  // hovering a table spotlights it: the diagram enters focus and the hovered box is pinned
+  await page.hover('#er-pg-users .tbl-h');
+  await expect(page.locator('#store-pg .er.focus')).toHaveCount(1);
+  await expect(page.locator('#er-pg-users.pin')).toHaveCount(1);
+});
+
+test('dig depth: opens at the recommended level and gates digging beyond it', async ({ page }) => {
+  await page.goto(MODELS);
+  await expect.poll(() => page.locator('.er.ready').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(1);
+  const er = page.locator('#store-pg .er');
+  // a standard-grain store opens at "Columns" (recommended), with a deeper "Everything" level marked
+  await expect(er).toHaveAttribute('data-dig', '2');
+  await expect(page.locator('#store-pg .dig button.on')).toHaveText(/Columns/);
+  await expect(page.locator('#store-pg .dig button.deep')).toHaveCount(1);
+  // the deepest level explains, on hover, WHY it isn't advised — and that it's the floor
+  await expect(page.locator('#store-pg .dig button[data-lvl="3"]')).toHaveAttribute('title', /deepest level \(nothing beyond it\)/);
+  await page.hover('#store-pg .dig button[data-lvl="3"]');
+  await expect(page.locator('#store-pg .dig-hint')).toHaveText(/not insight/);
+  // shallower levels switch freely — no gate
+  await page.click('#store-pg .dig button[data-lvl="0"]');
+  await expect(er).toHaveAttribute('data-dig', '0');
+  await expect(page.locator('#store-pg .dig-gate')).toBeHidden();
+  // digging past recommended raises the gate and does NOT change the level yet
+  await page.click('#store-pg .dig button[data-lvl="3"]');
+  await expect(page.locator('#store-pg .dig-gate')).toBeVisible();
+  await expect(er).toHaveAttribute('data-dig', '0');
+  // declining keeps you put; confirming unlocks the deepest level + its raw reference rows
+  await page.click('#store-pg .dig-gate .stay');
+  await expect(page.locator('#store-pg .dig-gate')).toBeHidden();
+  await page.click('#store-pg .dig button[data-lvl="3"]');
+  await page.click('#store-pg .dig-gate .go');
+  await expect(er).toHaveAttribute('data-dig', '3');
+  await expect(page.locator('#er-pg-orders .cmeta').first()).toBeVisible();
+});
+
+test('scenarios live on the map as a diggable tour — no separate page or tab', async ({ page }) => {
+  // the standalone scenarios page is gone
+  expect(fs.existsSync(SCEN_PATH)).toBe(false);
+  await page.goto(DEMO);
+  // the map's top nav offers System map + Data models only — no Scenarios tab
+  await expect(page.locator('.cv-topnav a', { hasText: 'Scenarios' })).toHaveCount(0);
+  await expect(page.locator('.cv-topnav a', { hasText: 'Data models' })).toHaveCount(1);
+  // start the guided tour; it opens at the recommended "Walkthrough" depth
+  await page.click('#tourBtn');
+  await expect(page.locator('#narr')).toBeVisible();
+  await expect(page.locator('#narr')).toHaveAttribute('data-dig', '1');
+  await expect(page.locator('#tourDig .seg button.on')).toHaveText(/Walkthrough/);
+  // hovering Deep dive explains why it isn't advised (before clicking), then restores on leave
+  await page.hover('#tourDig .seg button[data-lvl="2"]');
+  await expect(page.locator('#tourDigHint')).toHaveText(/not insight/);
+  await expect(page.locator('#tourDig .seg button[data-lvl="2"]')).toHaveAttribute('title', /deepest level \(nothing beyond it\)/);
+  await page.hover('#narrText');
+  await expect(page.locator('#tourDigHint')).not.toHaveText(/not insight/);
+  // shallower level (Overview) switches with no gate
+  await page.click('#tourDig .seg button[data-lvl="0"]');
+  await expect(page.locator('#narr')).toHaveAttribute('data-dig', '0');
+  await expect(page.locator('#tourGate')).toBeHidden();
+  // digging to Deep dive raises the gate and holds the level; confirming reveals the beginner content
+  await page.click('#tourDig .seg button[data-lvl="2"]');
+  await expect(page.locator('#tourGate')).toBeVisible();
+  await expect(page.locator('#narr')).toHaveAttribute('data-dig', '0');
+  await page.click('#tGateGo');
+  await expect(page.locator('#narr')).toHaveAttribute('data-dig', '2');
+  await expect(page.locator('#narrCallout')).toBeVisible();
+  await expect(page.locator('#narrJargon .jt').first()).toBeVisible();
 });

@@ -23,7 +23,7 @@ fields[53]{object,field,req,shape,note}:
   EDGES,[4] latency,no,int ms,heat dot + flow speed; illustrative
   EDGE_DETAIL,'from>to',no,string[],hover steps; key must match an edge
   SCENARIOS,id/label,yes,string,tour id + button text
-  SCENARIOS,intro,no,html,beginner big-picture for the scenarios.html page (render-pages)
+  SCENARIOS,intro,no,html,beginner big-picture for the scenario (shown at the tour Deep-dive depth)
   SCENARIOS,steps,yes,step[],ordered hops (see step fields)
   step,from/to,yes,nodeId,MUST also be an EDGES pair
   step,payload,no,string,wire payload chip (e.g. GET /x)
@@ -34,12 +34,12 @@ fields[53]{object,field,req,shape,note}:
   step,replyText,no,string,narration for the return leg
   step,replyDetail,no,html,why the response is what it is
   step,oneway,no,bool,fire-and-forget; no response leg in the tour
-  step,lesson,no,html,entry-level explanation for scenarios.html; <p><b><i><code> only (no attributes). Falls back to text+detail
-  step,callout,no,html,the one key concept of the step, defined simply (the "New to this?" box)
-  step,learn,no,[name;def][],jargon defined plainly for the scenarios page (falls back to terms)
+  step,lesson,no,html,entry-level explanation shown at the tour Deep-dive depth; <p><b><i><code> only (no attributes). Falls back to text+detail
+  step,callout,no,html,the one key concept of the step, defined simply (the Deep-dive aside)
+  step,learn,no,[name;def][],jargon defined plainly, shown at Deep-dive depth (falls back to terms)
   DATAMODEL,key = nodeId,no,store,keyed by a datastore NODES id; clicking that node opens its ER drill-in
   DATAMODEL,engine/about,no,string,e.g. Postgres/Redis + one-line purpose
-  DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; shown in the footer
+  DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; also sets the data-model.html "Dig depth" RECOMMENDED level (overview→Keys, else→Columns)
   DATAMODEL,context,no,html,data-model.html: the intro ABOVE the ER diagram (what the store holds + why); falls back to about
   DATAMODEL,explain,no,html,data-model.html: a comprehensive new-grad walkthrough BELOW the diagram (how the tables relate); auto-generated from the FKs if omitted
   DATAMODEL,tables,no,table[],entities/collections (see table fields)
@@ -81,7 +81,7 @@ usecases[11]{case,model}:
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[34]{case,handling}:
+edgecases[35]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -100,9 +100,9 @@ edgecases[34]{case,handling}:
   duplicate node id,later silently overwrites earlier; ids must be unique
   domain colour clash,avoid amber/yellow/orange (reserved for status + latency); pick distinct hues
   no scenarios,the tour is empty; always provide ≥1 flow
-  companion pages,render-pages.js turns the map into data-model.html + scenarios.html (collapsible); run it after writing system-map.html; reads DATAMODEL + SCENARIOS, adds the top nav
+  companion page,render-pages.js turns the map into data-model.html (full-page ER per store, Dig-depth dial); run it after writing system-map.html; reads DATAMODEL, adds the top nav. Scenarios are NOT a page \u2014 they live on the map tour
   data-model.html layout,per store: context (above) -> the ER diagram (tables + crow\u2019s-foot relationship lines, many->one) -> a comprehensive new-grad explanation (below). Author DATAMODEL context+explain; the queries field is no longer rendered there
-  beginner scenarios,the scenarios page reads SCENARIOS intro + step lesson/callout/learn for entry-level explanations; if absent it falls back to text/detail/terms — write the beginner fields for a real onboarding page
+  diggable scenarios,the map tour has a Dig-depth dial: Overview (hop) -> Walkthrough (text/detail, recommended) -> Deep dive (the SCENARIOS intro + step lesson/callout/learn). Past recommended a gate warns it is reference detail. Write the beginner fields for a real onboarding tour; absent, Deep dive reuses detail/terms
   reduced-motion user,flow → static chevrons; comet freezes; narration must carry the meaning
   offline / file://,fully supported; no CDN or framework is loaded
   tour response order,requests descend in step order; responses unwind in REVERSE — an upstream node replies only after its downstream returns
@@ -116,6 +116,7 @@ edgecases[34]{case,handling}:
   fk to another store,a col fk pointing at a table in a different store shows as an FK badge with no connector (the target card lives in the other store) — say so in the col note
   non-relational store,model KV/doc stores as tables too (key pattern as the entity); set grain:overview; queries can describe access without sql
   data-model granularity,grain overview|standard|full sets depth; use the /codeviz-datamodel meta-prompts. Modeled from the schema source — verify vs live; never fabricate columns
+  dig depth (runtime),data-model.html renders a "Dig depth" dial per store: Entities→Keys→Columns→Everything (progressive reveal). It opens at the grain-derived RECOMMENDED level; digging past it pops a gate ("reference noise, not insight — dig in anyway?") the reader can accept or decline. No authoring needed
 ```
 
 ## Invariants (validate before delivering)

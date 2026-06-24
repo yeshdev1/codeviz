@@ -78,8 +78,28 @@
   .legend .note{display:block;margin-top:9px;font-size:11px;line-height:1.45;color:var(--sub)}
   .legend .note em{color:var(--ink);font-style:normal;font-weight:700}
   /* narration / tour panel */
-  .narr{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;width:min(680px,calc(100% - 40px));background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:13px 16px;z-index:6;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .narr{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;width:min(680px,calc(100% - 40px));max-height:calc(100vh - 120px);overflow-y:auto;background:var(--glass);border:1px solid var(--line);border-radius:14px;padding:13px 16px;z-index:6;box-shadow:0 10px 40px rgba(0,0,0,.45)}
   .narr.hidden{display:none}
+  /* dig depth — how deep into a scenario the reader wants to go */
+  .narr .digrow{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .narr .digrow .dl{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--sub)}
+  .narr .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .narr .seg button{appearance:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--sub);font:700 11.5px inherit;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .narr .seg button:first-child{border-left:0} .narr .seg button:hover{color:var(--ink);background:rgba(255,255,255,0.05)}
+  .narr .seg button.on{color:#0b1208;background:var(--accent)} .narr .seg button.deep:not(.on){opacity:.6}
+  .narr .seg .tag{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;border-radius:3px;padding:0 4px;background:rgba(255,255,255,0.14)} .narr .seg button.on .tag{background:rgba(0,0,0,0.22)}
+  .narr .digrow .dh{margin-left:auto;color:var(--sub);font-size:11px;font-style:italic}
+  .narr .nlesson{color:var(--sub);font-size:12.8px;line-height:1.6;margin-top:8px} .narr .nlesson p{margin:0 0 8px} .narr .nlesson p:last-child{margin:0} .narr .nlesson b{color:var(--ink);font-weight:700} .narr .nlesson code{background:rgba(255,255,255,0.08);color:var(--accent);padding:1px 6px;border-radius:5px}
+  .narr .ncallout{margin-top:9px;padding:9px 12px;background:rgba(150,120,255,0.1);border:1px solid rgba(150,120,255,0.32);border-left:3px solid #b49bff;border-radius:8px;color:#d9caff;font-size:12.5px;line-height:1.55} .narr .ncallout b{color:#fff} .narr .ncallout code{background:rgba(255,255,255,0.1);padding:1px 6px;border-radius:5px}
+  .narr .diggate{margin:9px 0 2px;padding:10px 12px;border:1px solid #f5b34a;border-left:3px solid #f5b34a;border-radius:9px;background:rgba(245,179,74,0.1);color:var(--ink);font-size:12.3px;line-height:1.5}
+  .narr .diggate.hidden{display:none} .narr .diggate b{color:#fff} .narr .diggate i{color:var(--ink)}
+  .narr .diggate .ga{display:flex;gap:8px;margin-top:9px}
+  .narr .diggate button{appearance:none;font:700 12px inherit;border-radius:7px;padding:5px 11px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--sub)}
+  .narr .diggate .go{background:#f5b34a;border-color:#f5b34a;color:#1b1205} .narr .diggate .stay:hover{color:var(--ink)}
+  /* progressive reveal: 0 overview · 1 walkthrough (recommended) · 2 deep dive */
+  .narr[data-dig="0"] .ntext,.narr[data-dig="0"] .ndetail,.narr[data-dig="0"] .nlesson,.narr[data-dig="0"] .ncallout,.narr[data-dig="0"] .njargon{display:none}
+  .narr[data-dig="1"] .nlesson,.narr[data-dig="1"] .ncallout,.narr[data-dig="1"] .njargon{display:none}
+  .narr .nlesson:empty,.narr .ncallout:empty{display:none!important}
   .narr .nh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .narr .nh .step{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
   .narr .nh .hop{font-weight:800}
@@ -224,11 +244,23 @@
   <button id="focusClear">show full system</button>
 </div>
 
-<div class="narr hidden" id="narr">
+<div class="narr hidden" id="narr" data-dig="1">
   <div class="scenpick" id="scenpick"></div>
+  <div class="digrow" id="tourDig">
+    <span class="dl">Dig depth</span>
+    <span class="seg">
+      <button type="button" data-lvl="0">Overview</button>
+      <button type="button" data-lvl="1" class="on">Walkthrough<span class="tag">rec</span></button>
+      <button type="button" data-lvl="2" class="deep" title="More than you need just to follow the flow — the full beginner explanation and every term. This is the deepest level (nothing beyond it).">Deep dive<span class="tag">deeper</span></button>
+    </span>
+    <span class="dh" id="tourDigHint">the request, plainly</span>
+  </div>
+  <div class="diggate hidden" id="tourGate"><b>Past the recommended “Walkthrough” depth.</b> Deep dive unpacks the full beginner explanation, plain-English asides and every term — handy the first time through, but more than you need just to <i>follow</i> the flow. Dig in anyway?<div class="ga"><button class="go" type="button" id="tGateGo">Dig deeper →</button><button class="stay" type="button" id="tGateStay">Stay at recommended</button></div></div>
   <div class="nh" id="narrHead"></div>
   <div class="ntext" id="narrText"></div>
   <div class="ndetail" id="narrDetail"></div>
+  <div class="nlesson" id="narrLesson"></div>
+  <div class="ncallout" id="narrCallout"></div>
   <div class="njargon" id="narrJargon"></div>
   <div class="nb">
     <button id="tPrev">‹ Prev</button>
@@ -343,8 +375,8 @@
   // payload); the engine then replays the steps in REVERSE as RESPONSES, so an upstream node
   // only replies AFTER its downstream calls return. reply = the actual content that comes back
   // over that hop (not just an ack); replyText/replyDetail narrate the return; oneway = no reply.
-  // @@ REPLACE: 1-3 critical end-to-end flows. text/detail/terms power the in-map guided tour;
-  // the OPTIONAL beginner fields power the dedicated scenarios.html page (render-pages.js):
+  // @@ REPLACE: 1-3 critical end-to-end flows. text/detail/terms power the in-map guided tour at the
+  // recommended "Walkthrough" depth; the OPTIONAL beginner fields surface at the tour's "Deep dive" depth:
   //   intro  = scenario big-picture for a newcomer (HTML, no attributes — use only <b><i><code><p>)
   //   lesson = the rich step explanation (HTML); callout = the one key concept; learn = [[term,def]]
   // from/to must be NODES keys AND an existing EDGES pair.
@@ -595,7 +627,7 @@
   function healthGlyph(s){ return s==='down'?'✗':(s==='degraded'?'⚠':'✓'); }
   function edgeHealth(e){ var a=healthOf(e[0]).state, b=healthOf(e[1]).state; // worst of the two ends
     return (a==='down'||b==='down')?'down':((a==='degraded'||b==='degraded')?'degraded':'up'); }
-  var trace=null, tour={on:false,scen:null,list:[],i:0,play:false,t0:0,dur:2600};
+  var trace=null, tour={on:false,scen:null,list:[],i:0,play:false,t0:0,dur:2600,dig:1,digUnlock:false};
   var tourContentHit=null; // world-space rect of the content label on the active connection
 
   /* degree-of-interest: hop distance from focus over undirected edges */
@@ -1208,13 +1240,13 @@
   /* ---------- guided tour (fly-to scrollytelling) ---------- */
   var narr=document.getElementById('narr');
   function buildScenPicker(){ var w=document.getElementById('scenpick'); w.innerHTML=''; SCENARIOS.forEach(function(s,i){ var b=document.createElement('button'); b.className='pill'; b.textContent=s.label; b.dataset.i=i; if(tour.scen&&SCENARIOS[tour.i]&&false){} w.appendChild(b); }); w.addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) startTour(+b.dataset.i); }); }
-  function startTour(si){ tour.on=true; tour.scen=SCENARIOS[si]; tour.list=buildPlaylist(SCENARIOS[si]); tour.i=0; tour.play=!reduce; setFocus(null); narr.classList.remove('hidden'); markScen(si); showTourStep(); }
+  function startTour(si){ tour.on=true; tour.scen=SCENARIOS[si]; tour.list=buildPlaylist(SCENARIOS[si]); tour.i=0; tour.play=!reduce; setFocus(null); narr.classList.remove('hidden'); narr.dataset.dig=tour.dig; document.getElementById('tourGate').classList.add('hidden'); markScen(si); showTourStep(); }
   function markScen(si){ Array.prototype.forEach.call(document.querySelectorAll('#scenpick button'),function(b){ b.classList.toggle('on',+b.dataset.i===si); }); }
   // A real call is a STACK: requests descend the hops in order, then responses unwind in
   // REVERSE — an upstream node only replies AFTER its downstream calls return. One-way hops
   // (fire-and-forget) have no reply, so they're skipped on the way back.
   function buildPlaylist(scen){
-    var reqs=scen.steps.map(function(s){ return {from:s.from,to:s.to,dir:'req',payload:s.payload,text:s.text,detail:s.detail,terms:s.terms}; });
+    var reqs=scen.steps.map(function(s){ return {from:s.from,to:s.to,dir:'req',payload:s.payload,text:s.text,detail:s.detail,terms:s.terms,lesson:s.lesson,callout:s.callout,learn:s.learn}; });
     var resps=[];
     for(var i=scen.steps.length-1;i>=0;i--){ var s=scen.steps[i]; if(s.oneway) continue;
       resps.push({from:s.to,to:s.from,dir:'resp',payload:s.reply||'response',text:s.replyText||('The response travels back from '+NODES[s.to].label+' to '+NODES[s.from].label+'.'),detail:s.replyDetail||''}); }
@@ -1234,8 +1266,11 @@
       (lat!=null?'<span class="meta" style="margin-left:auto">~'+lat+'ms</span>':'');
     document.getElementById('narrText').textContent=it.text;
     document.getElementById('narrDetail').innerHTML = it.detail || '';
+    // deep-dive fields (only shown at dig depth 2): the full beginner lesson + plain-English aside
+    document.getElementById('narrLesson').innerHTML = it.lesson || '';
+    document.getElementById('narrCallout').innerHTML = it.callout || '';
     var jw=document.getElementById('narrJargon'); jw.innerHTML='';
-    (it.terms||[]).forEach(function(t){ var s=document.createElement('span'); s.className='jt'; s.innerHTML='<b>'+t[0]+'</b> — '+t[1]; jw.appendChild(s); });
+    (it.learn||it.terms||[]).forEach(function(t){ var s=document.createElement('span'); s.className='jt'; s.innerHTML='<b>'+t[0]+'</b> — '+t[1]; jw.appendChild(s); });
     document.getElementById('tCount').textContent=(tour.i+1)+' / '+N;
     document.getElementById('tPlay').textContent=tour.play?'❚❚ Pause':'▶ Play';
     announce((resp?'Response ':'Request ')+(tour.i+1)+' of '+N+': '+NODES[it.from].label+' to '+NODES[it.to].label+'. '+it.text);
@@ -1249,6 +1284,26 @@
   document.getElementById('tPrev').addEventListener('click',tourPrev);
   document.getElementById('tExit').addEventListener('click',exitTour);
   document.getElementById('tPlay').addEventListener('click',function(){ tour.play=!tour.play; this.textContent=tour.play?'❚❚ Pause':'▶ Play'; });
+
+  /* dig depth — reveal more of each scenario step on demand; gate the deepest level */
+  var DIGHINT=['just the hop — what moves where','the request, plainly','full explanation, asides & jargon'], DIGREC=1;
+  function setTourDig(lvl){ tour.dig=lvl; narr.dataset.dig=lvl;
+    Array.prototype.forEach.call(document.querySelectorAll('#tourDig .seg button'),function(b){ b.classList.toggle('on',+b.dataset.lvl===lvl); });
+    var h=document.getElementById('tourDigHint'); if(h) h.textContent=DIGHINT[lvl]||''; }
+  (function(){ var gate=document.getElementById('tourGate'), hint=document.getElementById('tourDigHint'), pending=null;
+    Array.prototype.forEach.call(document.querySelectorAll('#tourDig .seg button'),function(b){
+      b.addEventListener('click',function(){
+        var lvl=+b.dataset.lvl;
+        if(lvl>DIGREC && !tour.digUnlock){ pending=lvl; gate.classList.remove('hidden'); return; }
+        gate.classList.add('hidden'); setTourDig(lvl); });
+      // hovering a deeper-than-recommended level explains WHY it isn't advised, before you click
+      if(+b.dataset.lvl>DIGREC && hint){
+        b.addEventListener('mouseenter',function(){ hint.textContent='more than you need to follow the flow — reference, not insight'; });
+        b.addEventListener('mouseleave',function(){ hint.textContent=DIGHINT[tour.dig]||''; });
+      } });
+    document.getElementById('tGateGo').addEventListener('click',function(){ tour.digUnlock=true; gate.classList.add('hidden'); if(pending!=null) setTourDig(pending); });
+    document.getElementById('tGateStay').addEventListener('click',function(){ gate.classList.add('hidden'); pending=null; });
+  })();
 
   /* tour comet timer — one directional hop per playlist item (prog 0→1) */
   function tick(ts){
