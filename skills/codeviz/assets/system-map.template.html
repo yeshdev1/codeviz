@@ -343,52 +343,79 @@
   // payload); the engine then replays the steps in REVERSE as RESPONSES, so an upstream node
   // only replies AFTER its downstream calls return. reply = the actual content that comes back
   // over that hop (not just an ack); replyText/replyDetail narrate the return; oneway = no reply.
-  // @@ REPLACE: 1-3 critical end-to-end flows for the guided tour. Write to TEACH a newcomer:
-  // text = what happens (one line), detail = WHY it works this way, terms = [name, plain definition].
-  // from/to must be NODES keys AND an existing EDGES pair (so the comet has a line to travel).
+  // @@ REPLACE: 1-3 critical end-to-end flows. text/detail/terms power the in-map guided tour;
+  // the OPTIONAL beginner fields power the dedicated scenarios.html page (render-pages.js):
+  //   intro  = scenario big-picture for a newcomer (HTML, no attributes — use only <b><i><code><p>)
+  //   lesson = the rich step explanation (HTML); callout = the one key concept; learn = [[term,def]]
+  // from/to must be NODES keys AND an existing EDGES pair.
   var SCENARIOS = [
-    { id:'read', label:'A read request', steps:[
+    { id:'read', label:'A read request',
+      intro:"When an app shows you a list — your orders, your messages — it first has to fetch that data from the server. This walks one read request from the app down to where the data lives, and shows a trick servers use to stay fast: checking a cache before the database. No prior knowledge assumed; every term is defined as it appears.",
+      steps:[
       {from:'web',to:'api',payload:'GET /things',
         text:'The client asks the API for data \u2014 it never queries the database itself.',
         detail:'Clients only ever talk to the <b>API</b> (one layer down). That keeps database credentials and business rules in one place instead of copied into every app.',
         terms:[['API','the one service that owns logic and database access']],
         reply:'200 OK + JSON',
         replyText:'The client finally gets its data back \u2014 only after the cache/DB hops below returned.',
-        replyDetail:'The client\u2019s response is the <b>last</b> event, not the first: it waited for the whole chain underneath.'},
+        replyDetail:'The client\u2019s response is the <b>last</b> event, not the first: it waited for the whole chain underneath.',
+        lesson:"<p>Your app does not read the database directly. It asks the <b>API</b> — a single server program that owns the rules and is the only thing allowed to touch the database — to fetch the data for it, using an <b>HTTP request</b>.</p><p>Why route everything through one API? Because the database password and the business rules then live in exactly one place, instead of being copied into every app (web, mobile, desktop). One door, one set of locks.</p>",
+        callout:"An <b>API</b> is a server that other programs talk to over HTTP. <code>GET</code> means “fetch something” — this request only reads data, it never changes anything.",
+        learn:[["API","a server that other programs call over HTTP to fetch or change data"],["HTTP request","a message asking a server to do or return something"],["client","the app making the request — a browser, phone, or script"]]},
       {from:'api',to:'redis',payload:'cache lookup',
         text:'The API checks the cache first.',
         detail:'A <b>cache</b> holds recently-used answers in memory. On a \u201chit\u201d the API replies in well under a millisecond and never touches the database \u2014 that\u2019s why this hop is the fastest on the map.',
         terms:[['cache','fast in-memory store of recent results'],['cache hit','the answer was already cached, so no DB query is needed']],
         reply:'miss (not cached)',
-        replyText:'The cache has no copy, so the API must read the source of truth next.'},
+        replyText:'The cache has no copy, so the API must read the source of truth next.',
+        lesson:"<p>Before doing the slow thing — reading the database — the API checks a <b>cache</b> first. A cache is a small, very fast store that keeps recently-used answers in memory.</p><p>If the answer is already there (a <b>cache hit</b>) the API can reply in well under a millisecond and never bothers the database at all — that is why this is the fastest hop on the map. This time imagine it is a <b>miss</b>: the answer is not cached yet, so we go one layer deeper.</p>",
+        callout:"A <b>cache</b> trades freshness for speed: it keeps copies of recent results in memory so common reads can skip the database. A <b>hit</b> means the copy was there; a <b>miss</b> means it was not.",
+        learn:[["cache","a fast in-memory store of recent results, used to avoid slow lookups"],["cache hit / miss","whether the cache already had the answer (hit) or not (miss)"],["in-memory","kept in RAM, which is far faster to read than disk"]]},
       {from:'api',to:'pg',payload:'SELECT \u2026',
         text:'On a cache miss, the API reads the source of truth and refills the cache.',
         detail:'<b>Postgres</b> is the single source of truth. The API runs a <b>parameterised</b> query (values sent separately from the SQL text), which is what makes it safe from SQL injection.',
         terms:[['source of truth','the one authoritative copy of the data'],['parameterised query','SQL where inputs are bound separately \u2014 injection-safe']],
         reply:'rows',
         replyText:'Postgres returns the matching rows \u2014 the actual data the request was for.',
-        replyDetail:'This is where real content enters the response: the rows. The hops above just carry them upward.'}
+        replyDetail:'This is where real content enters the response: the rows. The hops above just carry them upward.',
+        lesson:"<p>On a miss, the API reads from the <b>database</b> — the single, permanent source of truth where the real data lives in tables of rows. It pulls out just the rows it needs, then quietly saves the result back into the cache so the next identical request will be a fast hit.</p><p>The query is <b>parameterised</b>: the values you searched for are sent to the database separately from the query text. That sounds like a detail, but it is exactly what prevents <b>SQL injection</b> — a classic attack where malicious input is smuggled in as commands.</p>",
+        callout:"The <b>database</b> is the authoritative copy of your data, kept on disk so it survives restarts. A <b>parameterised query</b> keeps user input as <i>data</i>, never as part of the command — which is what makes it safe.",
+        learn:[["database","the permanent source of truth, storing data in tables of rows"],["query","a request to the database to read or change specific rows"],["parameterised query","a query where inputs are sent separately from the text — safe from injection"],["SQL injection","an attack that sneaks commands in through input; parameterising stops it"]]}
     ]},
-    { id:'write', label:'A write + background job', steps:[
+    { id:'write', label:'A write + background job',
+      intro:"Reading data is only half the story — sometimes you change something (place an order, post a comment). Writes are riskier: they must be saved safely, and they often kick off slow follow-up work (emails, charging a card) that you should not have to wait for. This walks a write and shows how the system keeps it both safe and fast.",
+      steps:[
       {from:'web',to:'api',payload:'POST /orders',
         text:'The client submits a change to the API.',
         detail:'Writes use the same single entry point as reads. Centralising them lets the API validate every change in one place.',
         reply:'201 Created',
-        replyText:'The client gets a 201 once the write has committed below.'},
+        replyText:'The client gets a 201 once the write has committed below.',
+        lesson:"<p>Just like reads, a change goes through the same single <b>API</b>. The app sends a <b>POST</b> request — the HTTP verb for “create or submit” — carrying the new order's details.</p><p>Funnelling writes through one place means the API can check every change in one spot: are you allowed to do this, is the data valid, does it break any rules. You never want that logic scattered across a dozen apps.</p>",
+        callout:"<code>POST</code> is the HTTP verb for creating or submitting something (versus <code>GET</code> for fetching). Routing writes through one API keeps <b>validation</b> and permissions in a single place.",
+        learn:[["POST","the HTTP verb for creating or submitting data"],["validation","checking that incoming data is well-formed and allowed before saving it"]]},
       {from:'api',to:'pg',payload:'INSERT \u2026 (transaction)',
         text:'The API writes to Postgres inside a transaction.',
         detail:'A <b>transaction</b> means the change either fully happens or not at all \u2014 no half-written data, even if two requests race.',
         terms:[['transaction','a group of writes that all succeed or all roll back together']],
         reply:'committed + id',
-        replyText:'Postgres commits the row and returns its id; the write is durable.'},
+        replyText:'Postgres commits the row and returns its id; the write is durable.',
+        lesson:"<p>The API saves the order into the database inside a <b>transaction</b> — an all-or-nothing wrapper around a group of writes.</p><p>Why? Creating an order is usually several writes at once (the order, its line items, a total). If the server crashed halfway, you must never be left with half an order. A transaction guarantees that either <i>every</i> write lands or <i>none</i> do — there is no in-between, even if two requests race.</p>",
+        callout:"A <b>transaction</b> bundles several database changes so they all <b>commit</b> (become permanent) together or all <b>roll back</b> (undo) together. There is no half-finished state.",
+        learn:[["transaction","a group of writes that all succeed or all fail together"],["commit / roll back","make the changes permanent, or undo them entirely"],["durable","once committed, the data survives crashes and restarts"]]},
       {from:'api',to:'queue',payload:'enqueue job', oneway:true,
         text:'Slow follow-up work is pushed onto a queue, not done inline \u2014 fire-and-forget.',
         detail:'Sending email or charging a card is slow and can fail. The API <b>enqueues</b> a job and returns immediately, so the user isn\u2019t left waiting. No reply comes back on this hop.',
-        terms:[['queue','a to-do list of jobs for background workers'],['enqueue','add a job to the queue']]},
+        terms:[['queue','a to-do list of jobs for background workers'],['enqueue','add a job to the queue']],
+        lesson:"<p>Now the slow part: we may need to email a receipt and charge a card. Those talk to outside services that are slow and can fail, so the API does <b>not</b> do them while you wait.</p><p>Instead it drops a note onto a <b>queue</b> — a to-do list — and returns to you immediately. Your order looks done in a split second. This hop is <b>fire-and-forget</b>: nothing comes back on it.</p>",
+        callout:"A <b>queue</b> is a to-do list that background workers pull from. <b>Enqueueing</b> a job lets the API answer you now and let the slow work happen later, out of sight.",
+        learn:[["queue","a to-do list of jobs for background workers to process later"],["enqueue","add a job to the queue and move on"],["fire-and-forget","start a job and continue without waiting for a result"]]},
       {from:'queue',to:'ext',payload:'call provider (retry)', oneway:true,
         text:'Later, a worker calls the third party in the background, retrying on failure.',
         detail:'Off the request path (dashed = async), a slow or down provider never blocks the user \u2014 the worker just retries with <b>backoff</b>.',
-        terms:[['async','runs in the background; the caller doesn\u2019t wait'],['backoff','waiting longer between each retry']]}
+        terms:[['async','runs in the background; the caller doesn\u2019t wait'],['backoff','waiting longer between each retry']],
+        lesson:"<p>Moments later a <b>background worker</b> picks the job off the queue and calls the third-party provider (the payment or email service). This happens <b>asynchronously</b> — in the background, long after you already saw your confirmation.</p><p>If the provider is slow or down, the worker simply tries again later with <b>backoff</b> (waiting longer between attempts). Because it is off the request path, none of that flakiness can ever slow you down.</p>",
+        callout:"<b>Asynchronous</b> work happens in the background; the user is never blocked on it. <b>Retry with backoff</b> means re-attempting a failed job later, waiting longer each time, so a struggling service is not hammered.",
+        learn:[["background worker","code that processes queued jobs out of sight of the user"],["asynchronous","happening in the background; the caller does not wait"],["retry with backoff","re-trying a failed job later, with growing delays"]]}
     ]}
   ];
 

@@ -11,6 +11,8 @@ const path = require('path');
 const url = require('url');
 
 const DEMO = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/system-map.html')).href;
+const MODELS = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/data-model.html')).href;
+const SCEN = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/scenarios.html')).href;
 
 // Elements the engine depends on — keep this in sync with the template.
 const REQUIRED_IDS = [
@@ -190,4 +192,29 @@ test('connectors are redrawn after the panel scrolls', async ({ page }) => {
   expect(await page.locator('#erLinks path').count()).toBeGreaterThanOrEqual(3);
   const bad = await page.evaluate(() => Array.from(document.querySelectorAll('#erLinks path')).filter((p) => /NaN|undefined/.test(p.getAttribute('d') || '')).length);
   expect(bad).toBe(0);
+});
+
+// --- companion pages (rendered by assets/render-pages.js) ---
+
+test('the data-model page renders full-page ER tables with FK connectors', async ({ page }) => {
+  await page.goto(MODELS);
+  await expect.poll(() => page.locator('.tbl').count()).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => page.locator('.er-svg path').count(), { timeout: 3000 }).toBeGreaterThanOrEqual(2);
+  // top nav links back to the map and scenarios
+  await expect(page.locator('.top nav a[href="system-map.html"]')).toHaveCount(1);
+});
+
+test('the scenarios page is collapsible, collapsed by default, with beginner content', async ({ page }) => {
+  await page.goto(SCEN);
+  expect(await page.locator('details.scen').count()).toBeGreaterThanOrEqual(1);
+  // collapsed by default
+  expect(await page.locator('details.scen[open]').count()).toBe(0);
+  // a tab opens its scenario
+  await page.locator('.sc-tabs a').first().click();
+  await expect(page.locator('details.scen[open]')).toHaveCount(1);
+  // entry-level content is present once open
+  expect(await page.locator('details.scen[open] .callout').count()).toBeGreaterThanOrEqual(1);
+  expect(await page.locator('details.scen[open] .why p').count()).toBeGreaterThanOrEqual(1);
+  // each step carries the whole-system schematic
+  expect(await page.locator('details.scen[open] svg.sch').count()).toBeGreaterThanOrEqual(1);
 });

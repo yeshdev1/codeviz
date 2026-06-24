@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>codeviz demo — Data models</title>
+<style>
+  :root{
+    /* page chrome */
+    --bg:#1c1c1c; --card:#2e2e2e; --ink:#ededed; --sub:#9b9b9b; --line:rgba(255,255,255,0.16);
+    --accent:#3ecf8e; --comet:#7ff0bd; --faint:#6a6a6a; --panel:#161616; --back:#f5a623;
+    /* canvas (read by JS) */
+    --cv-ink:#ededed; --cv-sub:#9b9b9b; --cv-card:#2e2e2e; --cv-edge:#3ecf8e; --cv-comet:#7ff0bd;
+    --cv-faint:#6a6a6a; --cv-back:#f5a623; --cv-warn:#f5b34a; --cv-line:rgba(255,255,255,0.16);
+    --cv-chip:#101010; --cv-focus:#0e3b29; --cv-req:#3b9dff; --cv-resp:#ff9e3d; --cv-down:#e5484d;
+    /* floating glass panels (legend / tour / minimap / tooltip) */
+    --glass:rgba(22,22,22,0.94);
+  }
+  :root{ --accent2:var(--cv-comet,#b6e890); --req:var(--cv-req,#3b9dff); --resp:var(--cv-resp,#ff9e3d); --down:var(--cv-down,#e5484d); --warn:var(--cv-warn,#f5b34a); }
+  *{box-sizing:border-box} html,body{margin:0} body{background:var(--bg);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  a{color:inherit;text-decoration:none}
+  .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .top .brand{font-weight:800;color:var(--accent);letter-spacing:.2px;font-size:15px}
+  .top nav{display:flex;gap:4px;margin-left:6px}
+  .top nav a{padding:6px 13px;border-radius:8px;color:var(--sub);font-weight:600;font-size:13px}
+  .top nav a:hover{color:var(--ink);background:rgba(255,255,255,0.05)}
+  .top nav a.on{color:#0b1208;background:var(--accent)}
+  .top .sp{flex:1} .top .hint{color:var(--sub);font-size:12px}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 22px 80px}
+  .lede{color:var(--sub);font-size:14.5px;line-height:1.65;max-width:840px;margin:6px 0 24px} .lede b{color:var(--ink)}
+  h1{font-size:22px;margin:18px 0 4px}
+  .pill{display:inline-block;font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:6px;padding:1px 8px}
+  
+  .ml{display:grid;grid-template-columns:212px 1fr;gap:0;align-items:start}
+  .ml .rail{position:sticky;top:64px;align-self:start;padding:6px 10px 30px;border-right:1px solid var(--line)}
+  .ml .rail a{display:block;padding:4px 8px;border-radius:6px;color:var(--sub);font-size:12.5px}
+  .ml .rail a.store{color:var(--ink);font-weight:700;margin-top:10px}
+  .ml .rail a:hover{background:rgba(255,255,255,0.05);color:var(--ink)}
+  .ml .body{padding:4px 4px 0 26px;min-width:0}
+  .store{margin-bottom:46px;scroll-margin-top:64px}
+  .store-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap} .store-h h2{font-weight:800;font-size:17px;margin:0}
+  .store-about{color:var(--sub);font-size:13px;line-height:1.6;max-width:860px;margin:7px 0 4px}
+  .store-meta{color:var(--sub);font-size:12px;margin-bottom:14px} .store-meta b{color:var(--ink)}
+  .er{position:relative} .er-svg{position:absolute;left:0;top:0;pointer-events:none;z-index:0;overflow:visible}
+  .er-grid{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:18px;align-content:flex-start}
+  .tbl{position:relative;width:256px;background:var(--card);border:1px solid var(--line);border-top:2px solid var(--tc,var(--accent));border-radius:11px;overflow:hidden;box-shadow:0 5px 20px rgba(0,0,0,.28);scroll-margin-top:70px}
+  .tbl-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--line)} .tbl-h .nm{font-weight:800;font-size:13px}
+  .tbl-about{padding:7px 12px;color:var(--sub);font-size:11px;line-height:1.45;border-bottom:1px solid var(--line)}
+  .col{display:flex;align-items:center;gap:9px;padding:6px 12px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,0.05)} .col:last-child{border-bottom:0}
+  .k{width:22px;flex:none;text-align:center;font-size:8.5px;font-weight:800;letter-spacing:.3px;color:var(--sub)} .k.pk{color:var(--warn)} .k.fk{color:var(--req)}
+  .cn{font-weight:600} .ct{margin-left:auto;color:var(--sub);font-family:ui-monospace,Menlo,monospace;font-size:10.5px} .cnote{color:var(--sub);cursor:help;font-size:11px}
+  .ext{font-size:9px;color:var(--sub);border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:6px}
+  .joins{margin-top:20px} .joins h3{font-size:13px;margin:0 0 10px}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:12px;max-width:900px}
+  .q-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap} .q-h b{font-size:13.5px} .via{color:var(--sub);font-size:11px}
+  .chain{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:9px 0}
+  .chip{background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:11px;font-family:ui-monospace,Menlo,monospace} .chip.x{opacity:.6}
+  .join{color:var(--accent);font-weight:800;margin:0 2px} .q-about{color:var(--sub);font-size:12.5px;line-height:1.55}
+  .sql{margin:10px 0 0;background:#0e100c;border:1px solid var(--line);border-radius:8px;padding:11px 13px;color:var(--accent2);font:12px/1.55 ui-monospace,Menlo,monospace;overflow:auto;white-space:pre-wrap}
+  .note-foot{color:var(--sub);font-size:12px;border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
+</style></head><body><div class="top">
+  <a class="brand" href="system-map.html">codeviz demo</a>
+  <nav>
+    <a href="system-map.html">System map</a>
+    <a href="data-model.html" class="on">Data models</a>
+    <a href="scenarios.html">Scenarios</a>
+  </nav>
+  <span class="sp"></span><span class="hint">Onboarding · self-contained, offline</span>
+</div><div class="wrap"><div class="ml"><div class="rail"><a class="store" href="#store-pg">Database</a><a href="#er-pg-users">users</a><a href="#er-pg-orders">orders</a><a href="#er-pg-order_items">order_items</a><a href="#er-pg-products">products</a><a class="store" href="#store-redis">Cache</a><a href="#er-redis-session__token_">session:{token}</a><a href="#er-redis-cache_user__id_">cache:user:{id}</a></div><div class="body"><h1>Data models</h1><div class="lede">Every datastore behind codeviz demo, as an entity-relationship diagram. A <b>foreign key</b> (a column that points at another table) is drawn as a connector; a key whose target lives in <b>another</b> store shows as an <span class="ext">ext</span> badge. Below each schema, <b>joins &amp; retrieval</b> shows how the data is actually read across the system.</div><section class="store" id="store-pg"><div class="store-h"><h2>Database</h2><span class="pill">Postgres</span></div>
+      <div class="store-about">The relational source of truth — core entities and the relationships between them.</div>
+      <div class="store-meta"><b>4</b> entities · <b>3</b> relationships · detail: <b>standard</b></div>
+      <div class="er"><svg class="er-svg" data-store="pg"></svg><div class="er-grid"><div class="tbl" id="er-pg-users" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">users</span></div><div class="tbl-about">One row per account.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">id</span><span class="ct">uuid</span></div><div class="col"><span class="k"></span><span class="cn">email</span><span class="ct">text</span><span class="cnote" title="unique">&#9432;</span></div><div class="col"><span class="k"></span><span class="cn">created_at</span><span class="ct">timestamptz</span></div></div><div class="tbl" id="er-pg-orders" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">orders</span></div><div class="tbl-about">A purchase placed by a user.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">id</span><span class="ct">uuid</span></div><div class="col" data-fk="users.id"><span class="k fk" title="foreign key → users.id">FK</span><span class="cn">user_id</span><span class="ct">uuid</span><span class="cnote" title="who placed it">&#9432;</span></div><div class="col"><span class="k"></span><span class="cn">status</span><span class="ct">text</span><span class="cnote" title="pending|paid|shipped">&#9432;</span></div><div class="col"><span class="k"></span><span class="cn">total_cents</span><span class="ct">int</span></div><div class="col"><span class="k"></span><span class="cn">created_at</span><span class="ct">timestamptz</span></div></div><div class="tbl" id="er-pg-order_items" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">order_items</span></div><div class="tbl-about">Line items — many per order.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">id</span><span class="ct">uuid</span></div><div class="col" data-fk="orders.id"><span class="k fk" title="foreign key → orders.id">FK</span><span class="cn">order_id</span><span class="ct">uuid</span></div><div class="col" data-fk="products.id"><span class="k fk" title="foreign key → products.id">FK</span><span class="cn">product_id</span><span class="ct">uuid</span></div><div class="col"><span class="k"></span><span class="cn">qty</span><span class="ct">int</span></div><div class="col"><span class="k"></span><span class="cn">price_cents</span><span class="ct">int</span></div></div><div class="tbl" id="er-pg-products" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">products</span></div><div class="tbl-about">Catalogue of things for sale.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">id</span><span class="ct">uuid</span></div><div class="col"><span class="k"></span><span class="cn">name</span><span class="ct">text</span></div><div class="col"><span class="k"></span><span class="cn">price_cents</span><span class="ct">int</span></div><div class="col"><span class="k"></span><span class="cn">active</span><span class="ct">bool</span></div></div></div></div><div class="joins"><h3>Joins &amp; retrieval</h3><div class="q"><div class="q-h"><b>A user’s order history</b><span class="via">via API</span></div><div class="chain"><span class="chip">orders</span><span class="join">&#8904;</span><span class="chip">order_items</span><span class="join">&#8904;</span><span class="chip">products</span><span class="join">&#8904;</span><span class="chip">users</span></div><div class="q-about">The API joins orders → items → products to render a user’s purchase history in a single round trip.</div><pre class="sql">SELECT o.id, o.created_at, p.name, i.qty, i.price_cents
+FROM orders o
+JOIN order_items i ON i.order_id = o.id
+JOIN products p ON p.id = i.product_id
+WHERE o.user_id = $1
+ORDER BY o.created_at DESC;</pre></div><div class="q"><div class="q-h"><b>Best-selling products</b><span class="via">via API</span></div><div class="chain"><span class="chip">order_items</span><span class="join">&#8904;</span><span class="chip">products</span></div><div class="q-about">Aggregates line items by product to rank sellers.</div><pre class="sql">SELECT p.name, sum(i.qty) AS sold
+FROM order_items i
+JOIN products p ON p.id = i.product_id
+GROUP BY p.name
+ORDER BY sold DESC
+LIMIT 10;</pre></div></div></section><section class="store" id="store-redis"><div class="store-h"><h2>Cache</h2><span class="pill">Redis</span></div>
+      <div class="store-about">In-memory key-value store — no relational schema. Keys are namespaced by purpose; most carry a TTL so hot data expires on its own. (FKs to other stores show as badges only.)</div>
+      <div class="store-meta"><b>2</b> entities · <b>2</b> relationships · detail: <b>overview</b></div>
+      <div class="er"><svg class="er-svg" data-store="redis"></svg><div class="er-grid"><div class="tbl" id="er-redis-session__token_" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">session:{token}</span></div><div class="tbl-about">A logged-in session, read on every request.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">token</span><span class="ct">key</span><span class="cnote" title="TTL 24h">&#9432;</span></div><div class="col"><span class="k fk" title="foreign key → users.id">FK</span><span class="cn">user_id</span><span class="ct">uuid</span><span class="cnote" title="in Postgres">&#9432;</span><span class="ext">ext</span></div><div class="col"><span class="k"></span><span class="cn">expires_at</span><span class="ct">unix-ts</span></div></div><div class="tbl" id="er-redis-cache_user__id_" style="--tc:#e0af68"><div class="tbl-h"><span class="nm">cache:user:{id}</span></div><div class="tbl-about">Cached user row so hot reads skip Postgres.</div><div class="col"><span class="k pk" title="primary key">PK</span><span class="cn">id</span><span class="ct">key</span><span class="cnote" title="TTL 5m">&#9432;</span><span class="ext">ext</span></div><div class="col"><span class="k"></span><span class="cn">json</span><span class="ct">string</span><span class="cnote" title="serialized user">&#9432;</span></div></div></div></div><div class="joins"><h3>Joins &amp; retrieval</h3><div class="q"><div class="q-h"><b>Resolve a session</b><span class="via">via API</span></div><div class="chain"><span class="chip">session:{token}</span></div><div class="q-about">The API reads the session by token and trusts its user_id — no database round trip on the hot path.</div></div></div></section><div class="note-foot">Modeled from the schema source — verify against your live database.</div></div></div></div><script>
+  function tid(s,n){return 'er-'+s+'-'+n.replace(/[^a-zA-Z0-9]/g,'_');}
+  function draw(){document.querySelectorAll('.er-svg').forEach(function(svg){
+    var store=svg.dataset.store,er=svg.closest('.er'),base=er.getBoundingClientRect();
+    svg.setAttribute('width',er.scrollWidth);svg.setAttribute('height',er.scrollHeight);while(svg.firstChild)svg.removeChild(svg.firstChild);
+    var NS='http://www.w3.org/2000/svg',defs=document.createElementNS(NS,'defs'),mk=document.createElementNS(NS,'marker');
+    mk.setAttribute('id','ar-'+store);mk.setAttribute('viewBox','0 0 10 10');mk.setAttribute('refX','8.5');mk.setAttribute('refY','5');mk.setAttribute('markerWidth','7');mk.setAttribute('markerHeight','7');mk.setAttribute('orient','auto-start-reverse');
+    var mp=document.createElementNS(NS,'path');mp.setAttribute('d','M0 0 L10 5 L0 10 z');mp.setAttribute('fill','context-stroke');mk.appendChild(mp);defs.appendChild(mk);svg.appendChild(defs);
+    er.querySelectorAll('.col[data-fk]').forEach(function(row){
+      var fk=row.dataset.fk,t=fk.split('.').slice(0,-1).join('.'),tgt=document.getElementById(tid(store,t));if(!tgt)return;
+      var th=tgt.querySelector('.tbl-h')||tgt,r1=row.getBoundingClientRect(),r2=th.getBoundingClientRect(),sx=er.scrollLeft,sy=er.scrollTop,y1=r1.top+r1.height/2-base.top+sy,y2=r2.top+r2.height/2-base.top+sy,x1,x2;
+      var left=(r2.left+r2.width/2)<(r1.left+r1.width/2);if(left){x1=r1.left-base.left+sx;x2=r2.right-base.left+sx;}else{x1=r1.right-base.left+sx;x2=r2.left-base.left+sx;}
+      var col=(getComputedStyle(tgt).getPropertyValue('--tc')||'').trim()||'#888',dx=Math.max(34,Math.abs(x2-x1)*0.4),c1=x1+(x2>=x1?dx:-dx),c2=x2+(x2>=x1?-dx:dx);
+      var p=document.createElementNS(NS,'path');p.setAttribute('d','M'+x1+' '+y1+' C '+c1+' '+y1+' '+c2+' '+y2+' '+x2+' '+y2);p.setAttribute('fill','none');p.setAttribute('stroke',col);p.setAttribute('stroke-width','1.6');p.setAttribute('opacity','0.8');p.setAttribute('marker-end','url(#ar-'+store+')');svg.appendChild(p);
+      var dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',x1);dot.setAttribute('cy',y1);dot.setAttribute('r','2.6');dot.setAttribute('fill',col);svg.appendChild(dot);
+    });});}
+  addEventListener('load',function(){draw();setTimeout(draw,60);});addEventListener('resize',draw);
+  function flash(){var h=location.hash.slice(1);if(!h)return;var el=document.getElementById(h);if(el&&el.classList.contains('tbl')){el.style.transition='box-shadow .5s';el.style.boxShadow='0 0 0 2px var(--accent),0 8px 26px rgba(0,0,0,.5)';setTimeout(function(){el.style.boxShadow='';},1100);}}
+  addEventListener('hashchange',function(){flash();setTimeout(draw,80);});addEventListener('load',flash);
+  </script></body></html>

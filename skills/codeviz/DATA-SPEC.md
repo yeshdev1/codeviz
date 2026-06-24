@@ -7,7 +7,7 @@ comma-separated row — same data as a table at a fraction of the tokens.
 
 ## Field reference
 ```toon
-fields[47]{object,field,req,shape,note}:
+fields[51]{object,field,req,shape,note}:
   NODES,tier,yes,int,layer index; 0=top
   NODES,w/h,yes,int px,box size; text does not auto-fit
   NODES,label/sub,yes,string,name + one-line subtitle
@@ -23,6 +23,7 @@ fields[47]{object,field,req,shape,note}:
   EDGES,[4] latency,no,int ms,heat dot + flow speed; illustrative
   EDGE_DETAIL,'from>to',no,string[],hover steps; key must match an edge
   SCENARIOS,id/label,yes,string,tour id + button text
+  SCENARIOS,intro,no,html,beginner big-picture for the scenarios.html page (render-pages)
   SCENARIOS,steps,yes,step[],ordered hops (see step fields)
   step,from/to,yes,nodeId,MUST also be an EDGES pair
   step,payload,no,string,wire payload chip (e.g. GET /x)
@@ -33,6 +34,9 @@ fields[47]{object,field,req,shape,note}:
   step,replyText,no,string,narration for the return leg
   step,replyDetail,no,html,why the response is what it is
   step,oneway,no,bool,fire-and-forget; no response leg in the tour
+  step,lesson,no,html,entry-level explanation for scenarios.html; <p><b><i><code> only (no attributes). Falls back to text+detail
+  step,callout,no,html,the one key concept of the step, defined simply (the "New to this?" box)
+  step,learn,no,[name;def][],jargon defined plainly for the scenarios page (falls back to terms)
   DATAMODEL,key = nodeId,no,store,keyed by a datastore NODES id; clicking that node opens its ER drill-in
   DATAMODEL,engine/about,no,string,e.g. Postgres/Redis + one-line purpose
   DATAMODEL,grain,no,enum,overview|standard|full — modelled depth; shown in the footer
@@ -75,7 +79,7 @@ usecases[11]{case,model}:
 
 ## Edge cases — gotchas & how the engine handles them
 ```toon
-edgecases[31]{case,handling}:
+edgecases[33]{case,handling}:
   cycle A→B→A,both edges draw; the upward one auto-flags amber (back-edge); layout still resolves
   self-loop A→A,avoid; put it in the node about/resp instead of an edge
   node with no edges,renders as an isolated box in its layer; still hover-able; check it truly belongs
@@ -94,6 +98,8 @@ edgecases[31]{case,handling}:
   duplicate node id,later silently overwrites earlier; ids must be unique
   domain colour clash,avoid amber/yellow/orange (reserved for status + latency); pick distinct hues
   no scenarios,the tour is empty; always provide ≥1 flow
+  companion pages,render-pages.js turns the map into data-model.html (full-page ER per store) + scenarios.html (collapsible, beginner walkthroughs); run it after writing system-map.html; it reads DATAMODEL + SCENARIOS and adds the top nav
+  beginner scenarios,the scenarios page reads SCENARIOS intro + step lesson/callout/learn for entry-level explanations; if absent it falls back to text/detail/terms — write the beginner fields for a real onboarding page
   reduced-motion user,flow → static chevrons; comet freezes; narration must carry the meaning
   offline / file://,fully supported; no CDN or framework is loaded
   tour response order,requests descend in step order; responses unwind in REVERSE — an upstream node replies only after its downstream returns
