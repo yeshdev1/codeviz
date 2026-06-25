@@ -34,7 +34,14 @@ A **Structure ↔ Health** toggle. Scenarios are illustrative by default (badged
 
 ## Select anything → explain it, on-device
 
-Run `/codeviz-explain` and the reader gets an opt-in prompt to download a small local model (**WebLLM · Llama-3.2-3B**, ~1.8 GB) into their browser. After that, **selecting any text** — a table, a column, a tour step — pops a **context-aware explanation right at the selection**. The layer hands the model the structured context around what you picked (the column's keys and parent table, the scenario hop, …), so it explains *that exact thing*. Runs entirely on the reader's device; offline after the one-time download, nothing sent anywhere. Needs a WebGPU browser (Chrome/Edge).
+Run `/codeviz-explain` to add an opt-in AI explainer to the generated pages. The reader downloads a small model into their browser once, then **highlights any text** for an explanation that streams in **right at the selection**.
+
+- **On-device.** The model — **WebLLM · `Llama-3.2-3B-Instruct`** (~1.8 GB, WebGPU) — runs in the browser. The *only* network call is the one-time weight download (cached after); then the page works offline and **nothing the reader selects ever leaves their machine**.
+- **Context-aware.** The layer walks the DOM and hands the model the structured context around the selection — a column's type, keys and parent table; the datastore; a tour step's hop — so it explains *that exact thing*, not the words in the abstract.
+- **Inline, not a chatbot.** The answer appears in a tooltip at the selection. No side panel, no tab to switch to. Output is rendered as text (never HTML), and all UI is namespaced so it can't touch the page.
+- **Requirements.** A WebGPU browser (Chrome/Edge). Works over `file://` in Chrome; otherwise serve the folder locally. Low-VRAM machines can swap to a 1B/1.5B model.
+
+Full reference (architecture, model alternatives, privacy, configuration, troubleshooting): [`skills/codeviz-explain/DOCS.md`](skills/codeviz-explain/DOCS.md).
 
 ## Install
 

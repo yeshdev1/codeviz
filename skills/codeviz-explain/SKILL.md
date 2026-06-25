@@ -10,6 +10,9 @@ text and a small **local** language model explains that exact thing — a table,
 step — in a tooltip anchored at the selection. No server, no API key, no side panel; after a one-time
 in-browser model download it runs fully offline on the reader's own device.
 
+> **Full reference:** [`DOCS.md`](DOCS.md) — architecture, the model + alternatives, context-extraction
+> internals, privacy/security, requirements, configuration, testing, limitations, and troubleshooting.
+
 ## The model
 **WebLLM (MLC)** running **`Llama-3.2-3B-Instruct` (q4f16_1, ~1.8 GB)** on **WebGPU** — the best-in-class
 in-browser instruct model for this size: strong enough for crisp 2–4 sentence explanations, small enough
