@@ -288,3 +288,60 @@ test('scenarios live on the map as a diggable tour — no separate page or tab',
   await expect(page.locator('#narrCallout')).toBeVisible();
   await expect(page.locator('#narrJargon .jt').first()).toBeVisible();
 });
+
+// A mock engine echoes the structured context the layer extracted, so we can assert the
+// selection → context → tooltip plumbing without downloading the real model weights.
+const MOCK_ENGINE = () => {
+  window.__cvExplainEngine = {
+    generate(system, user, onToken) {
+      const g = (re) => (user.match(re) || [, ''])[1];
+      const out = 'kind=' + g(/- kind: (.+)/) + ' table=' + g(/- table: (.+)/) +
+        ' column=' + g(/- column: (.+)/) + ' sel=' + g(/Selected text: "(.+)"/);
+      onToken(out); return Promise.resolve(out);
+    }
+  };
+};
+const selectContents = (page, sel) => page.evaluate((s) => {
+  const el = document.querySelector(s); const r = document.createRange(); r.selectNodeContents(el);
+  const g = window.getSelection(); g.removeAllRanges(); g.addRange(r);
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}, sel);
+
+test('select-to-explain: explains the selected element inline, at the selection (no side panel)', async ({ page }) => {
+  await page.addInitScript(MOCK_ENGINE);
+  await page.goto(MODELS);
+  await expect(page.locator('.cvx-pill')).toBeVisible();
+  // opt in (the mock engine flips it ready instantly — no real download)
+  await page.click('.cvx-pill');
+  await expect(page.locator('.cvx-card .cvx-enable')).toBeVisible();
+  await page.click('.cvx-card .cvx-enable');
+  await expect(page.locator('.cvx-pill')).toHaveAttribute('data-state', 'ready');
+  // selecting a table name pops a tooltip carrying that table's context
+  await selectContents(page, '#er-pg-order_items .nm');
+  await expect(page.locator('.cvx-tip')).toBeVisible();
+  await expect(page.locator('.cvx-tip .cvx-body')).toContainText('kind=table table=order_items');
+  // it's a tooltip, not a side panel: small box anchored near the selection
+  const box = await page.locator('.cvx-tip').boundingBox();
+  const vp = page.viewportSize();
+  expect(box.width).toBeLessThanOrEqual(380);
+  expect(box.height).toBeLessThan(vp.height * 0.6);
+  expect(box.x).toBeGreaterThan(120);            // not pinned to a screen edge like a panel
+  // a column carries its own keys + the parent table
+  await selectContents(page, '#er-pg-order_items .col.is-fk .cn');
+  await expect(page.locator('.cvx-tip .cvx-body')).toContainText('column=order_id');
+  // Esc closes it
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.cvx-tip')).toBeHidden();
+});
+
+test('select-to-explain also works on the map tour narration', async ({ page }) => {
+  await page.addInitScript(MOCK_ENGINE);
+  await page.goto(DEMO);
+  await page.click('.cvx-pill');
+  await page.click('.cvx-card .cvx-enable');
+  await expect(page.locator('.cvx-pill')).toHaveAttribute('data-state', 'ready');
+  await page.click('#tourBtn');
+  await expect(page.locator('#narr')).toBeVisible();
+  await selectContents(page, '#narrText');
+  await expect(page.locator('.cvx-tip .cvx-body')).toContainText('kind=scenario step');
+});

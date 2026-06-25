@@ -32,6 +32,10 @@ Grounded only: it never invents tables, marks unbuilt ones `planned`, and badges
 
 A **Structure ↔ Health** toggle. Scenarios are illustrative by default (badged *"modeled — not observed"*); `/codeviz-scenario` models a what-if up the call graph. For **real** status, `/codeviz-health` reads your local **Docker** and writes an **observed**, point-in-time snapshot you can toggle to — never fabricated.
 
+## Select anything → explain it, on-device
+
+Run `/codeviz-explain` and the reader gets an opt-in prompt to download a small local model (**WebLLM · Llama-3.2-3B**, ~1.8 GB) into their browser. After that, **selecting any text** — a table, a column, a tour step — pops a **context-aware explanation right at the selection**. The layer hands the model the structured context around what you picked (the column's keys and parent table, the scenario hop, …), so it explains *that exact thing*. Runs entirely on the reader's device; offline after the one-time download, nothing sent anywhere. Needs a WebGPU browser (Chrome/Edge).
+
 ## Install
 
 ```
@@ -50,6 +54,7 @@ A **Structure ↔ Health** toggle. Scenarios are illustrative by default (badged
 | **`/codeviz-capture <scene>`** | record an MP4/GIF of a scene — `tour` · `digtour` · `er` · `digdata` · `health` · `zoom` · `focus` (local Playwright + ffmpeg) | ~1–3k |
 | **`/codeviz-health`** | snapshot real Docker status (state, uptime, restarts) into the map | ~3–10k |
 | **`/codeviz-scenario "<what-if>"`** | model a failure's blast radius as a switchable scenario | ~3–10k |
+| **`/codeviz-explain`** | inject an opt-in **on-device** LLM — the reader selects any text for an inline explanation | ~0 (runs in the reader's browser) |
 | **`/dig-codeviz <step>`** | one level of `file:line`-cited detail on a step; hard-stops at 5 digs | ~8–20k /dig |
 
 ## Run only what you need
