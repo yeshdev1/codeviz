@@ -431,7 +431,7 @@
     if (text.length < 2) return;
     var rect = sel.getRangeAt(0).getBoundingClientRect();
     if (!rect || (!rect.width && !rect.height)) return;
-    if (state !== 'ready') { card.classList.remove('cvx-hidden'); renderOffer(); return; }   // nudge: enable first
+    if (state !== 'ready') { card.classList.remove('cvx-hidden'); if (state !== 'loading') renderOffer(); return; }   // nudge to enable, but don't clobber the download progress UI mid-load
     var my = ++reqId, ctx = gather(sel);
     showTip(rect); setBody('', true);
     engine.generate(SYS, prompt(ctx), function (tok) { if (my === reqId) setBody(tok, false); })
