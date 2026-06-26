@@ -101,6 +101,7 @@ After editing, re-inject (regenerate the base page first if needed). Full refere
 | **`/codeviz-health`** | snapshot real Docker status (state, uptime, restarts) into the map | ~3–10k |
 | **`/codeviz-scenario "<what-if>"`** | model a failure's blast radius as a switchable scenario | ~3–10k |
 | **`/codeviz-explain`** | inject an opt-in **on-device** LLM — the reader selects any text for an inline explanation | ~0 (runs in the reader's browser) |
+| **`/codeviz-next`** | suggest the next component to build/visualize from the map's state — a fresh idea each open (`next-steps.html`) | ~1–3k |
 | **`/dig-codeviz <step>`** | one level of `file:line`-cited detail on a step; hard-stops at 5 digs | ~8–20k /dig |
 
 ## Run only what you need

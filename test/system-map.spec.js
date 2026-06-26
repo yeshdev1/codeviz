@@ -13,6 +13,7 @@ const fs = require('fs');
 
 const DEMO = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/system-map.html')).href;
 const MODELS = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/data-model.html')).href;
+const NEXT = url.pathToFileURL(path.resolve(__dirname, '../examples/demo/next-steps.html')).href;
 const SCEN_PATH = path.resolve(__dirname, '../examples/demo/scenarios.html');
 
 // Elements the engine depends on — keep this in sync with the template.
@@ -344,4 +345,20 @@ test('select-to-explain also works on the map tour narration', async ({ page }) 
   await expect(page.locator('#narr')).toBeVisible();
   await selectContents(page, '#narrText');
   await expect(page.locator('.cvx-tip .cvx-body')).toContainText('kind=scenario step');
+});
+
+test('next-steps: a suggestion renders and a different one comes up each open / click', async ({ page }) => {
+  await page.goto(NEXT);
+  // a suggestion is shown, with impact/effort gauges and the unfinished-components list from the map
+  await expect(page.locator('#card h2')).toBeVisible();
+  await expect(page.locator('#card .gauge.impact .meter')).toBeVisible();
+  await expect(page.locator('details.partials')).toContainText(/Unfinished components \(\d+\)/);
+  // "Another idea" advances to a different suggestion
+  const first = await page.locator('#card h2').textContent();
+  await page.click('#again');
+  await expect(page.locator('#card h2')).not.toHaveText(first);
+  // each fresh open surfaces a different one (persisted reshuffling queue) — 3 opens, 3 distinct titles
+  const seen = new Set();
+  for (let i = 0; i < 3; i++) { await page.goto(NEXT); seen.add(await page.locator('#card h2').textContent()); }
+  expect(seen.size).toBe(3);
 });
