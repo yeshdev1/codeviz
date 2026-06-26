@@ -78,6 +78,8 @@ Extract **every** route from the router/handlers/OpenAPI/annotations. Per endpoi
 ### Deliver
 **Generate the companion page:** once `system-map.html` is written, run `node <skill>/assets/render-pages.js <output-dir>` (default `docs/onboarding`). It reads the map's `DATAMODEL`, emits **`data-model.html`** (full-page ER per store, Dig-depth dial), and adds the top nav + datastore deep-links. Zero dependencies — plain Node. Scenarios are **not** a page — they're the map's diggable guided tour; author the optional beginner fields on `SCENARIOS` (`intro` per scenario; `lesson`/`callout`/`learn` per step) so the tour's **Deep dive** depth has real entry-level content (without them, Deep dive reuses `text`/`detail`/`terms`).
 
+**Optional — select-to-explain:** offer to run **/codeviz-explain** (`node <skill>/../codeviz-explain/assets/inject-explain.js <output-dir>`) to add an opt-in, on-device LLM so the reader can select any text for an inline explanation. It's the natural next step after a map exists; it adds nothing until the reader opts in (then a one-time in-browser model download). Mention it needs a WebGPU browser.
+
 Assemble `index.html` (stack summary + tiles to the pages, in reading order). **Validate every page's inline JS with `node --check`** (extract `<script>` blocks, check syntax) and confirm the system-map's required IDs survive (`cv`, `levels`, `zin`, `zout`, `fit`, `tourBtn`, `layerKey`, `focusbar`, `focusClear`, `narr`, `narrHead`, `narrText`, `narrDetail`, `narrJargon`, `tPrev/Play/Next`, `tExit`, `tCount`, `scenpick`, `tip`). The system-map is **fully self-contained and works offline over `file://`** (no CDN). Tell the user the output path. Optionally serve it.
 
 ## Filling the template — quick reference

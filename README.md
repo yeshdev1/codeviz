@@ -32,6 +32,56 @@ Grounded only: it never invents tables, marks unbuilt ones `planned`, and badges
 
 A **Structure ↔ Health** toggle. Scenarios are illustrative by default (badged *"modeled — not observed"*); `/codeviz-scenario` models a what-if up the call graph. For **real** status, `/codeviz-health` reads your local **Docker** and writes an **observed**, point-in-time snapshot you can toggle to — never fabricated.
 
+## Select anything → explain it, on-device
+
+Run `/codeviz-explain` to add an opt-in AI explainer to the generated pages. The reader downloads a small model into their browser once, then **highlights any text** for an explanation that streams in **right at the selection**.
+
+- **On-device.** The model — **WebLLM · `Llama-3.2-3B-Instruct`** (~1.8 GB, WebGPU) — runs in the browser. The *only* network call is the one-time weight download (cached after); then the page works offline and **nothing the reader selects ever leaves their machine**.
+- **Context-aware.** The layer walks the DOM and hands the model the structured context around the selection — a column's type, keys and parent table; the datastore; a tour step's hop — so it explains *that exact thing*, not the words in the abstract.
+- **Inline, not a chatbot.** The answer appears in a tooltip at the selection. No side panel, no tab to switch to. Output is rendered as text (never HTML), and all UI is namespaced so it can't touch the page.
+- **Requirements.** A WebGPU browser (Chrome/Edge). Works over `file://` in Chrome; otherwise serve the folder locally. Low-VRAM machines can swap to a 1B/1.5B model.
+
+### Using the on-device explainer
+
+**1. Generate a map first.** The explainer attaches to existing codeviz pages, so run `/codeviz` (or `/codeviz map`) before anything else.
+
+**2. Inject the layer.** Run the skill on your output dir:
+
+```
+/codeviz-explain                                          # defaults to docs/onboarding
+# or directly:
+node skills/codeviz-explain/assets/inject-explain.js docs/onboarding
+```
+
+This inlines a small script + styles into `system-map.html`, `data-model.html`, and any other generated pages. It's **idempotent** — re-running it (e.g. after you regenerate a page) is safe.
+
+**3. Open the page in a WebGPU browser.** Chrome or Edge (recent). Over `file://` it works in Chrome; if your browser blocks the model import from a `file://` page, serve the folder and open `http://localhost:8000`:
+
+```
+python3 -m http.server -d docs/onboarding 8000
+```
+
+**4. Enable the model (one time).** Click the **💡 Explain** pill (bottom-left) → **Enable**. The model (`Llama-3.2-3B-Instruct`, ~1.8 GB) downloads into the browser with a progress bar; the page stays usable. It's cached (IndexedDB), so the next visit loads from disk and the choice is remembered.
+
+**5. Select any text.** Highlight a table, a column, a tour step — an explanation streams into a tooltip **at the selection**. Dismiss with Esc, a click away, or a new selection. The model runs entirely on your device; after the one-time download it works offline and nothing you select is sent anywhere.
+
+**Swap the model (optional).** Edit the constants at the top of `skills/codeviz-explain/assets/explain.js`:
+
+```js
+var MODEL_ID    = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';   // any WebLLM prebuilt
+var MODEL_LABEL = 'Llama 3.2 3B';
+var MODEL_SIZE  = '~1.8 GB';
+```
+
+| goal | `MODEL_ID` | size |
+|---|---|---|
+| lighter / faster, low-VRAM | `Llama-3.2-1B-Instruct-q4f16_1-MLC` | ~0.9 GB |
+| lighter, strong | `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` | ~1.0 GB |
+| **default (balanced)** | `Llama-3.2-3B-Instruct-q4f16_1-MLC` | ~1.8 GB |
+| higher quality | `Qwen2.5-3B-Instruct-q4f16_1-MLC` · `Phi-3.5-mini-instruct-q4f16_1-MLC` | ~2.0–2.2 GB |
+
+After editing, re-inject (regenerate the base page first if needed). Full reference — architecture, the context-extraction internals, privacy, testing, and troubleshooting: [`skills/codeviz-explain/DOCS.md`](skills/codeviz-explain/DOCS.md).
+
 ## Install
 
 ```
@@ -50,6 +100,8 @@ A **Structure ↔ Health** toggle. Scenarios are illustrative by default (badged
 | **`/codeviz-capture <scene>`** | record an MP4/GIF of a scene — `tour` · `digtour` · `er` · `digdata` · `health` · `zoom` · `focus` (local Playwright + ffmpeg) | ~1–3k |
 | **`/codeviz-health`** | snapshot real Docker status (state, uptime, restarts) into the map | ~3–10k |
 | **`/codeviz-scenario "<what-if>"`** | model a failure's blast radius as a switchable scenario | ~3–10k |
+| **`/codeviz-explain`** | inject an opt-in **on-device** LLM — the reader selects any text for an inline explanation | ~0 (runs in the reader's browser) |
+| **`/codeviz-next`** | suggest the next component to build/visualize from the map's state — a fresh idea each open (`next-steps.html`) | ~1–3k |
 | **`/dig-codeviz <step>`** | one level of `file:line`-cited detail on a step; hard-stops at 5 digs | ~8–20k /dig |
 
 ## Run only what you need

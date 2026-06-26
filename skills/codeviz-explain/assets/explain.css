@@ -1,0 +1,34 @@
+/* codeviz select-to-explain — on-device LLM layer. All classes namespaced .cvx-* so they
+   never collide with a generated page's own styles. */
+.cvx-pill{position:fixed;left:16px;bottom:16px;z-index:2147483000;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(18,20,28,.82);color:#e8eaf0;font:600 12.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 6px 22px rgba(0,0,0,.35)}
+.cvx-pill:hover{background:rgba(30,33,44,.92)}
+.cvx-dot{width:8px;height:8px;border-radius:50%;background:#7c7f8a;flex:none}
+.cvx-pill[data-state="loading"] .cvx-dot{background:#f5b34a;animation:cvx-pulse 1s infinite}
+.cvx-pill[data-state="ready"] .cvx-dot{background:#3ecf8e}
+.cvx-pill[data-state="error"] .cvx-dot,.cvx-pill[data-state="unsupported"] .cvx-dot{background:#e5484d}
+@keyframes cvx-pulse{50%{opacity:.4}}
+.cvx-card{position:fixed;left:16px;bottom:60px;z-index:2147483000;width:308px;max-width:calc(100vw - 32px);padding:14px 15px;border-radius:13px;border:1px solid rgba(255,255,255,.14);background:rgba(18,20,28,.96);color:#e8eaf0;font:13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 14px 44px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.cvx-card.cvx-hidden{display:none}
+.cvx-card h4{margin:0 0 6px;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.cvx-card p{margin:0 0 11px;color:#b9bdc9;font-size:12.3px}
+.cvx-card b{color:#fff}
+.cvx-card code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;font-size:11.5px}
+.cvx-row{display:flex;gap:8px}
+.cvx-card button{appearance:none;font:600 12.5px inherit;border-radius:8px;padding:7px 13px;cursor:pointer;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfd3dd}
+.cvx-card button.cvx-enable{background:#3ecf8e;border-color:#3ecf8e;color:#08130d}
+.cvx-card button.cvx-enable:hover{background:#34b97e}
+.cvx-card button.cvx-later:hover{color:#fff}
+.cvx-prog{height:6px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;margin:2px 0 8px}
+.cvx-prog i{display:block;height:100%;background:#3ecf8e;width:0;transition:width .25s}
+.cvx-note{color:#b9bdc9;font-size:11.5px;margin:0}
+/* the selection tooltip — anchored at the selection, never a side panel */
+.cvx-tip{position:fixed;z-index:2147483600;width:max-content;max-width:360px;background:rgba(16,18,26,.98);color:#eef0f5;border:1px solid rgba(255,255,255,.16);border-radius:11px;box-shadow:0 16px 50px rgba(0,0,0,.6);font:13px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:none}
+.cvx-tip .cvx-head{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid rgba(255,255,255,.1);font-size:10.5px;color:#aeb2bf;text-transform:uppercase;letter-spacing:.4px}
+.cvx-tip .cvx-head b{color:#dfe2ea;font-weight:700}
+.cvx-tip .cvx-x{margin-left:auto;background:none;border:0;color:#9aa0ad;font-size:15px;line-height:1;cursor:pointer;padding:0 2px}
+.cvx-tip .cvx-x:hover{color:#fff}
+.cvx-body{padding:10px 12px;max-height:42vh;overflow:auto;white-space:pre-wrap;font-size:12.8px}
+.cvx-arrow{position:absolute;top:-6px;left:18px;width:11px;height:11px;background:rgba(16,18,26,.98);border-left:1px solid rgba(255,255,255,.16);border-top:1px solid rgba(255,255,255,.16);transform:rotate(45deg)}
+.cvx-tip.cvx-above .cvx-arrow{top:auto;bottom:-6px;border-left:0;border-top:0;border-right:1px solid rgba(255,255,255,.16);border-bottom:1px solid rgba(255,255,255,.16)}
+.cvx-spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.25);border-top-color:#3ecf8e;border-radius:50%;animation:cvx-rot .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes cvx-rot{to{transform:rotate(360deg)}}
