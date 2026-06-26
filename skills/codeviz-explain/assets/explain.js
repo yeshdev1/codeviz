@@ -25,7 +25,12 @@
     if (useMock()) { onProgress && onProgress({ progress: 1, text: 'Ready' }); return Promise.resolve(); }
     if (!('gpu' in navigator)) { state = 'unsupported'; return Promise.reject(new Error('This browser has no WebGPU — use Chrome or Edge.')); }
     state = 'loading';
-    return import(WEBLLM_URL).then(function (webllm) {
+    // having navigator.gpu isn't enough — request an actual adapter so SwiftShader / no-GPU machines
+    // fail fast with the "unsupported" message instead of hanging on the model load.
+    return Promise.resolve(navigator.gpu.requestAdapter()).then(function (adapter) {
+      if (!adapter) { state = 'unsupported'; throw new Error('No usable WebGPU adapter — try Chrome or Edge on a machine with a supported GPU.'); }
+      return import(WEBLLM_URL);
+    }).then(function (webllm) {
       return webllm.CreateMLCEngine(MODEL_ID, { initProgressCallback: onProgress });
     }).then(function (mlc) {
       engine = {
