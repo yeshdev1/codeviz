@@ -411,8 +411,9 @@
       '<p class="cvx-note">' + note + ' — keep this tab open; it caches for next time.</p>';
   }
   function renderReady() { card.innerHTML = '<h4><span class="cvx-dot"></span>Ready</h4><p>Select any text on the page — a table, a column, a step — for an on-device explanation, right at the selection.</p>'; }
-  function renderError(msg) { card.innerHTML = '<h4><span class="cvx-dot"></span>Couldn’t enable</h4><p>' + (msg || 'Failed to load the model.') + '</p>'; }
+  function renderError(msg) { card.innerHTML = '<h4><span class="cvx-dot"></span>Couldn’t enable</h4><p>' + esc(msg || 'Failed to load the model.') + '</p>'; }
   function enable() {
+    if (state === 'loading' || state === 'ready') return;     // guard: don't start a second model load
     try { localStorage.setItem(PREF, 'enabled'); } catch (e) {}
     setPill('loading'); card.classList.remove('cvx-hidden'); renderLoading({ progress: 0 });
     loadEngine(function (p) { if (state === 'loading') renderLoading(p); }).then(function () {

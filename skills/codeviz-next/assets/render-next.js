@@ -153,11 +153,13 @@ function paint(){
     '<div class="gauges"><span class="gauge impact">Impact'+meter(s.impact)+'</span><span class="gauge effort">Effort'+meter(s.effort)+'</span></div></div>';
   document.getElementById('count').textContent = (idx+1)+' of '+order.length;
 }
-function persistNext(){var ni=(idx+1)%order.length, no=order; if(ni===0)no=shuffle(order); save({order:no,idx:ni});}
-paint();                      // show the current one (different from last visit — we advanced on the way out)
-persistNext();                // queue a new one for the next time the page opens
+// advance the in-page pointer and persist it together, so storage never desyncs from the session
+function advance(){ idx=(idx+1)%order.length; if(idx===0) order=shuffle(order); }
+function persist(){ save({order:order, idx:idx}); }
+paint();                      // show the current one (chosen on the last visit)
+advance(); persist();         // queue a fresh one for the next open; in-page state == stored state
 document.getElementById('again').addEventListener('click', function(){
-  idx=(idx+1)%order.length; if(idx===0)order=shuffle(order); paint(); persistNext();
+  paint(); advance(); persist();
 });
 </script></body></html>`;
 
