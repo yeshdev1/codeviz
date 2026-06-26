@@ -1556,7 +1556,10 @@
     setPill('loading'); card.classList.remove('cvx-hidden'); renderLoading({ progress: 0 });
     loadEngine(function (p) { if (state === 'loading') renderLoading(p); }).then(function () {
       setPill('ready'); renderReady(); setTimeout(function () { card.classList.add('cvx-hidden'); }, 3500);
-    }).catch(function (err) { setPill(state === 'unsupported' ? 'unsupported' : 'error'); renderError(err && err.message); });
+    }).catch(function (err) {
+      try { localStorage.removeItem(PREF); } catch (e) {}   // a failed/unsupported load must not auto-retry & re-error on every reload
+      setPill(state === 'unsupported' ? 'unsupported' : 'error'); renderError(err && err.message);
+    });
   }
 
   // ---------------------------------------------------------------- selection wiring

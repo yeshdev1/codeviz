@@ -118,6 +118,7 @@ const covChips = [
 ].filter(Boolean).join('');
 const partialsList = partials.length ? `<details class="partials"><summary>Unfinished components (${partials.length})</summary><div class="pl">${partials.map(id => `<span class="${NODES[id].status === 'planned' ? 'planned' : ''}">${esc(lbl(id))} · ${esc(NODES[id].status)}</span>`).join('')}</div></details>` : '';
 const SUGG_JSON = JSON.stringify(S.map(o => ({ kind: o.kind, area: o.area || '', title: o.title, why: o.why, how: o.how, impact: o.impact, effort: o.effort })));
+const SIG = require('crypto').createHash('sha1').update(SUGG_JSON).digest('hex').slice(0, 8);   // discard a stored queue if the suggestions changed
 
 const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>${esc(project)} — What to build next</title><style>${rootBlock}
@@ -134,10 +135,11 @@ ${partialsList}
 </div>
 <script>
 var SUGG = ${SUGG_JSON};
+var SIG = ${JSON.stringify(SIG)};   // content signature — ignore a stored queue if the suggestion set changed
 var KEY = 'cv-next-' + ${JSON.stringify(project.toLowerCase().replace(/[^a-z0-9]+/g, '-'))};
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
-function load(){try{var d=JSON.parse(localStorage.getItem(KEY));if(d&&d.order&&d.order.length===SUGG.length)return d;}catch(e){}return null;}
-function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
+function load(){try{var d=JSON.parse(localStorage.getItem(KEY));if(d&&d.sig===SIG&&d.order&&d.order.length===SUGG.length)return d;}catch(e){}return null;}
+function save(d){try{d.sig=SIG;localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
 var data = load() || {order:shuffle(SUGG.map(function(_,i){return i;})),idx:0};
 var order = data.order, idx = data.idx % order.length;
 function meter(n,cls){var h='<span class="meter">';for(var i=1;i<=3;i++)h+='<i class="'+(i<=n?'on':'')+'"></i>';return h+'</span>';}
